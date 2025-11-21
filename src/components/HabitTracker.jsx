@@ -85,8 +85,13 @@ export function HabitTracker({ habits, setHabits, dailyLog, setDailyLog }) {
         setHabits(habits.filter(h => h.id !== id));
     };
 
-    const completedCount = dailyLog[today]?.habits?.length || 0;
-    const totalCount = habits.length;
+    const activeHabits = habits.filter(h => !h.archived_at);
+    const totalCount = activeHabits.length;
+    // Only count completed habits that are still active
+    const completedCount = (dailyLog[today]?.habits || [])
+        .filter(id => activeHabits.some(h => h.id === id))
+        .length;
+
     const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
     return (

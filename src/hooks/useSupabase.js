@@ -78,11 +78,17 @@ export function useSupabase() {
         setHabits(newHabits);
 
         try {
-            const { error } = await supabase
+            console.log('Syncing habits to Supabase:', newHabits);
+            const { data, error } = await supabase
                 .from('habits')
-                .upsert(newHabits, { onConflict: 'id' });
+                .upsert(newHabits, { onConflict: 'id' })
+                .select();
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase upsert error:', error);
+                throw error;
+            }
+            console.log('Supabase sync success:', data);
         } catch (err) {
             console.error('Error syncing habits:', err);
         }
