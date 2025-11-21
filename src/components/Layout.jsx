@@ -2,7 +2,7 @@ import React from 'react';
 import { Moon, BarChart3, ListTodo, PlusCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export function Layout({ children, currentPage, setCurrentPage }) {
+export function Layout({ children, currentPage, setCurrentPage, selectedDate, setSelectedDate }) {
     return (
         <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
             <div className="max-w-3xl mx-auto min-h-screen flex flex-col border-x border-zinc-900/50 shadow-2xl shadow-black">
@@ -20,6 +20,16 @@ export function Layout({ children, currentPage, setCurrentPage }) {
                                 </h1>
                                 <p className="text-xs text-zinc-500 font-medium tracking-wide uppercase">Personal Tracker</p>
                             </div>
+                        </div>
+
+                        {/* Global Date Picker */}
+                        <div className="relative">
+                            <input
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                                className="bg-zinc-900/50 border border-zinc-800 text-zinc-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 [color-scheme:dark]"
+                            />
                         </div>
                     </div>
                 </header>

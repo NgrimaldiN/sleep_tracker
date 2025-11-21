@@ -11,19 +11,21 @@ const DEFAULT_HABITS = [
     { id: 'hot_shower', label: 'Hot shower/bath' },
 ];
 
-export function HabitTracker({ habits, setHabits, dailyLog, setDailyLog }) {
+export function HabitTracker({ habits, setHabits, dailyLog, setDailyLog, selectedDate }) {
     const [newHabit, setNewHabit] = useState('');
     const [newHabitType, setNewHabitType] = useState('boolean'); // 'boolean', 'number', 'select', 'time'
     const [newHabitOptions, setNewHabitOptions] = useState(''); // Comma separated for select
-    const today = new Date().toISOString().split('T')[0];
 
-    // Initialize today's log if not present
+    // Use the selected date from props instead of calculating "today"
+    const today = selectedDate;
+
+    // Initialize log for selected date if not present
     useEffect(() => {
         if (!dailyLog[today]) {
-            setDailyLog(prev => ({
-                ...prev,
+            setDailyLog({
+                ...dailyLog,
                 [today]: { habits: [], habitValues: {}, sleepScore: null, notes: '' }
-            }));
+            });
         }
     }, [today, dailyLog, setDailyLog]);
 

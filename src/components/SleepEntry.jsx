@@ -2,13 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Moon, Star, Save } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export function SleepEntry({ dailyLog, setDailyLog, setActiveTab }) {
-    // Default to yesterday since we usually log sleep for the previous night
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const defaultDate = yesterday.toISOString().split('T')[0];
+export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }) {
+    // Use selectedDate from props
+    const date = selectedDate;
 
-    const [date, setDate] = useState(defaultDate);
     const [score, setScore] = useState('');
     const [notes, setNotes] = useState('');
     const [saved, setSaved] = useState(false);
@@ -103,17 +100,14 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab }) {
             </div>
 
             <form onSubmit={handleSave} className="space-y-8">
-                {/* Date Picker */}
+                {/* Date Display (Read-only, controlled by global picker) */}
                 <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-400 ml-1">Date</label>
                     <div className="relative">
                         <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
-                        <input
-                            type="date"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl pl-12 pr-4 py-4 text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all [color-scheme:dark]"
-                        />
+                        <div className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl pl-12 pr-4 py-4 text-zinc-500 cursor-not-allowed">
+                            {date} <span className="text-xs ml-2">(Change in header)</span>
+                        </div>
                     </div>
                 </div>
 
