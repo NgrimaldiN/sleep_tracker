@@ -35,10 +35,10 @@ export function HabitTracker({ habits, setHabits, dailyLog, setDailyLog }) {
             ? currentHabits.filter(id => id !== habitId)
             : [...currentHabits, habitId];
 
-        setDailyLog(prev => ({
-            ...prev,
-            [today]: { ...prev[today], habits: updatedHabits }
-        }));
+        setDailyLog({
+            ...dailyLog,
+            [today]: { ...dailyLog[today], habits: updatedHabits }
+        });
     };
 
     const updateHabitValue = (habitId, value, type) => {
@@ -50,20 +50,20 @@ export function HabitTracker({ habits, setHabits, dailyLog, setDailyLog }) {
 
         const isActive = type === 'number' ? storedValue > 0 : !!storedValue;
 
-        setDailyLog(prev => ({
-            ...prev,
+        setDailyLog({
+            ...dailyLog,
             [today]: {
-                ...prev[today],
+                ...(dailyLog[today] || {}),
                 habitValues: {
-                    ...(prev[today]?.habitValues || {}),
+                    ...(dailyLog[today]?.habitValues || {}),
                     [habitId]: storedValue
                 },
                 // Mark as "done" if it has a value
                 habits: !isActive
-                    ? (prev[today]?.habits || []).filter(id => id !== habitId)
-                    : [...new Set([...(prev[today]?.habits || []), habitId])]
+                    ? (dailyLog[today]?.habits || []).filter(id => id !== habitId)
+                    : [...new Set([...(dailyLog[today]?.habits || []), habitId])]
             }
-        }));
+        });
     };
 
     const addNewHabit = (e) => {
@@ -75,14 +75,14 @@ export function HabitTracker({ habits, setHabits, dailyLog, setDailyLog }) {
             ? newHabitOptions.split(',').map(o => o.trim()).filter(Boolean)
             : null;
 
-        setHabits(prev => [...prev, { id, label: newHabit, type: newHabitType, options }]);
+        setHabits([...habits, { id, label: newHabit, type: newHabitType, options }]);
         setNewHabit('');
         setNewHabitType('boolean');
         setNewHabitOptions('');
     };
 
     const removeHabit = (id) => {
-        setHabits(prev => prev.filter(h => h.id !== id));
+        setHabits(habits.filter(h => h.id !== id));
     };
 
     const completedCount = dailyLog[today]?.habits?.length || 0;

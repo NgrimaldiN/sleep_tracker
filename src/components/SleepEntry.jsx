@@ -70,10 +70,10 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab }) {
     const handleSave = (e) => {
         e.preventDefault();
 
-        setDailyLog(prev => ({
-            ...prev,
+        setDailyLog({
+            ...dailyLog,
             [date]: {
-                ...(prev[date] || { habits: [] }),
+                ...(dailyLog[date] || { habits: [] }),
                 sleepScore: parseInt(score),
                 bedtime,
                 waketime,
@@ -86,7 +86,7 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab }) {
                 rhr: parseInt(rhr) || 0,
                 notes
             }
-        }));
+        });
 
         setSaved(true);
         setTimeout(() => {
