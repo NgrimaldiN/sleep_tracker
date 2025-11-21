@@ -2,7 +2,7 @@ import React from 'react';
 import { Moon, BarChart3, ListTodo, PlusCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export function Layout({ children, activeTab, setActiveTab }) {
+export function Layout({ children, currentPage, setCurrentPage }) {
     return (
         <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
             <div className="max-w-3xl mx-auto min-h-screen flex flex-col border-x border-zinc-900/50 shadow-2xl shadow-black">
@@ -37,20 +37,20 @@ export function Layout({ children, activeTab, setActiveTab }) {
                         <NavItem
                             icon={<ListTodo className="w-5 h-5" />}
                             label="Habits"
-                            isActive={activeTab === 'habits'}
-                            onClick={() => setActiveTab('habits')}
+                            isActive={currentPage === 'habits'}
+                            onClick={() => setCurrentPage('habits')}
                         />
                         <NavItem
                             icon={<PlusCircle className="w-5 h-5" />}
                             label="Log Sleep"
-                            isActive={activeTab === 'log'}
-                            onClick={() => setActiveTab('log')}
+                            isActive={currentPage === 'log'}
+                            onClick={() => setCurrentPage('log')}
                         />
                         <NavItem
                             icon={<BarChart3 className="w-5 h-5" />}
                             label="Insights"
-                            isActive={activeTab === 'dashboard'}
-                            onClick={() => setActiveTab('dashboard')}
+                            isActive={currentPage === 'dashboard'}
+                            onClick={() => setCurrentPage('dashboard')}
                         />
                     </ul>
                 </nav>

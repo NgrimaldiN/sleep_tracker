@@ -4,12 +4,12 @@ import { Trophy, TrendingUp, Activity, Battery, Clock, Heart } from 'lucide-reac
 import { cn } from '../lib/utils';
 
 const METRICS = {
-    sleepScore: { label: 'Sleep Score', color: '#8b5cf6', icon: MoonIcon, unit: '' },
-    duration: { label: 'Duration', color: '#3b82f6', icon: Clock, unit: 'h' },
-    deepSleep: { label: 'Deep Sleep', color: '#0ea5e9', icon: Activity, unit: 'h' },
-    bodyBattery: { label: 'Body Battery', color: '#f59e0b', icon: Battery, unit: '' },
-    hrv: { label: 'HRV', color: '#10b981', icon: Heart, unit: 'ms' },
-    rhr: { label: 'Resting HR', color: '#ef4444', icon: Heart, unit: 'bpm' },
+    sleepScore: { label: 'Sleep Score', color: '#8b5cf6', icon: MoonIcon, unit: '', inverse: false },
+    duration: { label: 'Duration', color: '#3b82f6', icon: Clock, unit: 'h', inverse: false },
+    deepSleep: { label: 'Deep Sleep', color: '#0ea5e9', icon: Activity, unit: 'h', inverse: false },
+    bodyBattery: { label: 'Body Battery', color: '#f59e0b', icon: Battery, unit: '', inverse: false },
+    hrv: { label: 'HRV', color: '#10b981', icon: Heart, unit: 'ms', inverse: false },
+    rhr: { label: 'Resting HR', color: '#ef4444', icon: Heart, unit: 'bpm', inverse: true },
 };
 
 function MoonIcon({ className }) {
@@ -26,10 +26,8 @@ export function Dashboard({ dailyLog, habits }) {
     const stats = useMemo(() => {
         const entries = Object.entries(dailyLog)
             .map(([date, data]) => {
-                // Calculate decimal hours for duration and deep sleep
                 const duration = (data.durationHours || 0) + (data.durationMinutes || 0) / 60;
                 const deepSleep = (data.deepHours || 0) + (data.deepMinutes || 0) / 60;
-
                 return {
                     date,
                     ...data,
@@ -42,34 +40,123 @@ export function Dashboard({ dailyLog, habits }) {
 
         if (entries.length === 0) return null;
 
-        // Calculate correlation between habits and selected metric
-        const habitStats = habits.map(habit => {
+        // Calculate Impact Scores
+        const habitImpacts = habits.flatMap(habit => {
+            if (habit.type === 'select' && habit.options) {
+                // Create a virtual habit for each option
+                return habit.options.map(option => {
+                    const withOption = entries.filter(e => e.habitValues?.[habit.id] === option);
+                    const withoutOption = entries.filter(e => e.habitValues?.[habit.id] !== option);
+
+                    if (withOption.length === 0 && withoutOption.length === 0) return null;
+
+                    const getAvg = (arr) => arr.length
+                        ? arr.reduce((acc, curr) => acc + (curr[selectedMetric] || 0), 0) / arr.length
+                        : 0;
+
+                    const avgWith = withOption.length ? getAvg(withOption) : 0;
+                    const avgWithout = withoutOption.length ? getAvg(withoutOption) : 0;
+
+                    let impact = 0;
+                    let isSignificant = false;
+
+                    if (withOption.length > 0 && withoutOption.length > 0) {
+                        impact = avgWith - avgWithout;
+                        isSignificant = true;
+                    }
+
+                    return {
+                        id: `${habit.id}_${option}`,
+                        label: `${habit.label}: ${option}`,
+                        avgWith,
+                        avgWithout,
+                        impact,
+                        isSignificant,
+                        countWith: withOption.length,
+                        countWithout: withoutOption.length,
+                        avgValue: null // No avg value for select options
+                    };
+                });
+            }
+
+            // Standard logic for boolean/number/time
             const withHabit = entries.filter(e => e.habits?.includes(habit.id));
             const withoutHabit = entries.filter(e => !e.habits?.includes(habit.id));
+
+            if (withHabit.length === 0 && withoutHabit.length === 0) return null;
 
             const getAvg = (arr) => arr.length
                 ? arr.reduce((acc, curr) => acc + (curr[selectedMetric] || 0), 0) / arr.length
                 : 0;
 
-            const avgWith = getAvg(withHabit);
-            const avgWithout = getAvg(withoutHabit);
+            const avgWith = withHabit.length ? getAvg(withHabit) : 0;
+            const avgWithout = withoutHabit.length ? getAvg(withoutHabit) : 0;
+
+            let impact = 0;
+            let isSignificant = false;
+
+            if (withHabit.length > 0 && withoutHabit.length > 0) {
+                impact = avgWith - avgWithout;
+                isSignificant = true;
+            }
+
+            let avgValue = null;
+            if (habit.type === 'number' && withHabit.length > 0) {
+                avgValue = withHabit.reduce((acc, curr) => acc + (curr.habitValues?.[habit.id] || 0), 0) / withHabit.length;
+            }
 
             return {
                 ...habit,
-                avgScore: avgWith,
-                impact: avgWith - avgWithout,
-                count: withHabit.length
+                avgWith,
+                avgWithout,
+                impact,
+                isSignificant,
+                countWith: withHabit.length,
+                countWithout: withoutHabit.length,
+                avgValue
             };
-        }).filter(h => h.count > 0).sort((a, b) => b.avgScore - a.avgScore);
+        }).flat().filter(Boolean).sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
 
         const recentAvg = entries.slice(-7).reduce((acc, curr) => acc + (curr[selectedMetric] || 0), 0) / Math.min(entries.length, 7);
-        const bestHabit = habitStats[0];
+
+        // Calculate Sleep Debt (last 7 days vs 8h target)
+        // Debt = (8 * days) - total_sleep
+        const last7Days = entries.slice(-7);
+        const totalSleepLast7Days = last7Days.reduce((acc, curr) => acc + (curr.duration || 0), 0);
+        const targetSleep = last7Days.length * 8;
+        const sleepDebt = targetSleep - totalSleepLast7Days;
+
+        // Calculate Optimal Bedtime
+        // Group entries by bedtime hour and find the one with highest avg sleep score
+        const bedtimeStats = {};
+        entries.forEach(entry => {
+            if (entry.bedtime && entry.sleepScore) {
+                const hour = parseInt(entry.bedtime.split(':')[0]);
+                if (!bedtimeStats[hour]) bedtimeStats[hour] = { totalScore: 0, count: 0 };
+                bedtimeStats[hour].totalScore += entry.sleepScore;
+                bedtimeStats[hour].count += 1;
+            }
+        });
+
+        let optimalBedtime = null;
+        let maxAvgScore = 0;
+
+        Object.entries(bedtimeStats).forEach(([hour, data]) => {
+            const avg = data.totalScore / data.count;
+            if (avg > maxAvgScore && data.count >= 2) { // Need at least 2 data points
+                maxAvgScore = avg;
+                optimalBedtime = `${hour}:00 - ${parseInt(hour) + 1}:00`;
+            }
+        });
 
         return {
             entries,
-            habitStats,
+            habitImpacts,
             recentAvg,
-            bestHabit
+            sleepDebt,
+            hasDebtData: last7Days.length > 0,
+            optimalBedtime,
+            maxAvgScore
         };
     }, [dailyLog, habits, selectedMetric]);
 
@@ -87,13 +174,39 @@ export function Dashboard({ dailyLog, habits }) {
         );
     }
 
-    const MetricIcon = METRICS[selectedMetric].icon;
+    const MetricConfig = METRICS[selectedMetric];
+    const MetricIcon = MetricConfig.icon;
+
+    const handleExport = () => {
+        const dataStr = JSON.stringify(dailyLog, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `sleep_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
-        <div className="space-y-8 pb-20">
-            <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-white">Insights</h2>
-                <p className="text-zinc-400">Analyze your sleep metrics.</p>
+        <div className="space-y-8 pb-24">
+            <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                    <h2 className="text-2xl font-bold text-white">Insights</h2>
+                    <p className="text-zinc-400">What drives your {MetricConfig.label}?</p>
+                </div>
+                <button
+                    onClick={handleExport}
+                    className="p-2 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-xl border border-zinc-800 transition-all"
+                    title="Export Data"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                </button>
             </div>
 
             {/* Metric Selector */}
@@ -119,7 +232,7 @@ export function Dashboard({ dailyLog, habits }) {
                 })}
             </div>
 
-            {/* Key Stats Row */}
+            {/* Key Stats */}
             <div className="grid grid-cols-2 gap-4">
                 <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800">
                     <div className="text-zinc-400 text-xs font-medium uppercase tracking-wider mb-1">7-Day Avg</div>
@@ -129,48 +242,113 @@ export function Dashboard({ dailyLog, habits }) {
                                 ? stats.recentAvg.toFixed(1)
                                 : Math.round(stats.recentAvg)}
                         </div>
-                        <span className="text-sm text-zinc-500 font-medium">{METRICS[selectedMetric].unit}</span>
+                        <span className="text-sm text-zinc-500 font-medium">{MetricConfig.unit}</span>
                     </div>
                 </div>
+
+                {/* Sleep Debt Card */}
                 <div className="p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800">
-                    <div className="text-zinc-400 text-xs font-medium uppercase tracking-wider mb-1">Entries</div>
-                    <div className="text-3xl font-bold text-white">{stats.entries.length}</div>
+                    <div className="text-zinc-400 text-xs font-medium uppercase tracking-wider mb-1">Sleep Debt (7d)</div>
+                    {stats.hasDebtData ? (
+                        <div className="flex items-baseline gap-1">
+                            <div className={cn(
+                                "text-3xl font-bold",
+                                stats.sleepDebt > 0 ? "text-rose-400" : "text-emerald-400"
+                            )}>
+                                {stats.sleepDebt > 0 ? '-' : '+'}{Math.abs(stats.sleepDebt).toFixed(1)}
+                            </div>
+                            <span className="text-sm text-zinc-500 font-medium">hr</span>
+                        </div>
+                    ) : (
+                        <div className="text-zinc-500 italic text-sm mt-1">Not enough data</div>
+                    )}
+                </div>
+
+                {/* Optimal Bedtime Card */}
+                <div className="col-span-2 p-5 rounded-2xl bg-gradient-to-br from-indigo-900/20 to-purple-900/20 border border-indigo-500/20">
+                    <div className="text-indigo-300 text-xs font-medium uppercase tracking-wider mb-1">Optimal Bedtime</div>
+                    {stats.optimalBedtime ? (
+                        <div>
+                            <div className="text-2xl font-bold text-white">{stats.optimalBedtime}</div>
+                            <div className="text-sm text-zinc-400 mt-1">
+                                Avg Sleep Score: <span className="text-indigo-400 font-bold">{Math.round(stats.maxAvgScore)}</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-zinc-500 italic text-sm mt-1">Log more bedtimes to see insights</div>
+                    )}
                 </div>
             </div>
 
-            {/* Best Habit Card */}
-            {stats.bestHabit && (
-                <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-900/20 to-teal-900/10 border border-emerald-500/20 relative overflow-hidden">
-                    <div className="flex items-start justify-between relative z-10">
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <Trophy className="w-5 h-5 text-emerald-400" />
-                                <span className="text-emerald-200 font-medium">Top Performer</span>
+            {/* Impact Scorecard */}
+            <div className="space-y-4">
+                <h3 className="text-lg font-bold text-white">Habit Impact</h3>
+                <div className="grid gap-3">
+                    {stats.habitImpacts.map((habit) => {
+                        // Determine if impact is "good" or "bad"
+                        // For RHR (inverse): Negative impact is GOOD (Green), Positive is BAD (Red)
+                        // For others: Positive impact is GOOD (Green), Negative is BAD (Red)
+
+                        let isGood = habit.impact > 0;
+                        if (MetricConfig.inverse) isGood = !isGood;
+
+                        // Neutral if no impact or not significant
+                        const isNeutral = !habit.isSignificant || Math.abs(habit.impact) < 0.1;
+
+                        const colorClass = isNeutral
+                            ? "text-zinc-400 bg-zinc-800/50 border-zinc-800"
+                            : isGood
+                                ? "text-emerald-400 bg-emerald-950/30 border-emerald-900/50"
+                                : "text-rose-400 bg-rose-950/30 border-rose-900/50";
+
+                        const valueColor = isNeutral
+                            ? "text-zinc-500"
+                            : isGood
+                                ? "text-emerald-400"
+                                : "text-rose-400";
+
+                        return (
+                            <div key={habit.id} className={cn("flex items-center justify-between p-4 rounded-2xl border", colorClass)}>
+                                <div>
+                                    <div className="font-bold text-zinc-200">{habit.label}</div>
+                                    <div className="text-xs text-zinc-500 mt-0.5">
+                                        {habit.countWith} days with {habit.avgValue ? `(avg ${habit.avgValue.toFixed(1)})` : ''} • {habit.countWithout} days without
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    {habit.isSignificant ? (
+                                        <>
+                                            <div className={cn("text-xl font-bold", valueColor)}>
+                                                {habit.impact > 0 ? '+' : ''}{habit.impact.toFixed(1)}
+                                                <span className="text-sm font-medium ml-0.5">{MetricConfig.unit}</span>
+                                            </div>
+                                            <div className="text-xs text-zinc-500 font-medium">Impact</div>
+                                        </>
+                                    ) : (
+                                        <div className="text-xs text-zinc-500 italic">Not enough data</div>
+                                    )}
+                                </div>
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-1">{stats.bestHabit.label}</h3>
-                            <p className="text-emerald-200/60 text-sm">
-                                Avg {METRICS[selectedMetric].label}: <span className="text-white font-bold">
-                                    {selectedMetric === 'duration' || selectedMetric === 'deepSleep'
-                                        ? stats.bestHabit.avgScore.toFixed(1)
-                                        : Math.round(stats.bestHabit.avgScore)}
-                                    {METRICS[selectedMetric].unit}
-                                </span>
-                            </p>
+                        );
+                    })}
+                    {stats.habitImpacts.length === 0 && (
+                        <div className="p-8 text-center border border-dashed border-zinc-800 rounded-2xl">
+                            <p className="text-zinc-500">No habits tracked yet.</p>
                         </div>
-                    </div>
+                    )}
                 </div>
-            )}
+            </div>
 
             {/* Trend Chart */}
             <div className="p-6 rounded-3xl bg-zinc-900/50 border border-zinc-800">
-                <h3 className="text-lg font-bold text-white mb-6">{METRICS[selectedMetric].label} Trend</h3>
+                <h3 className="text-lg font-bold text-white mb-6">{MetricConfig.label} Trend</h3>
                 <div className="h-64 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={stats.entries}>
                             <defs>
                                 <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor={METRICS[selectedMetric].color} />
-                                    <stop offset="100%" stopColor={METRICS[selectedMetric].color} stopOpacity={0.5} />
+                                    <stop offset="0%" stopColor={MetricConfig.color} />
+                                    <stop offset="100%" stopColor={MetricConfig.color} stopOpacity={0.5} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
@@ -189,65 +367,29 @@ export function Dashboard({ dailyLog, habits }) {
                                 tickLine={false}
                                 axisLine={false}
                                 dx={-10}
+                                domain={['auto', 'auto']}
                             />
                             <Tooltip
                                 contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
                                 itemStyle={{ color: '#fff' }}
                                 labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
                                 formatter={(value) => [
-                                    `${value} ${METRICS[selectedMetric].unit}`,
-                                    METRICS[selectedMetric].label
+                                    `${value} ${MetricConfig.unit}`,
+                                    MetricConfig.label
                                 ]}
                             />
                             <Line
                                 type="monotone"
                                 dataKey={selectedMetric}
-                                stroke={METRICS[selectedMetric].color}
+                                stroke={MetricConfig.color}
                                 strokeWidth={3}
-                                dot={{ fill: '#18181b', stroke: METRICS[selectedMetric].color, strokeWidth: 2, r: 4 }}
+                                dot={{ fill: '#18181b', stroke: MetricConfig.color, strokeWidth: 2, r: 4 }}
                                 activeDot={{ r: 6, fill: '#fff' }}
                             />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
             </div>
-
-            {/* Habit Impact Chart */}
-            {stats.habitStats.length > 0 && (
-                <div className="p-6 rounded-3xl bg-zinc-900/50 border border-zinc-800">
-                    <h3 className="text-lg font-bold text-white mb-6">Habit Impact on {METRICS[selectedMetric].label}</h3>
-                    <div className="h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={stats.habitStats} layout="vertical" margin={{ left: 0, right: 30 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={false} />
-                                <XAxis type="number" hide />
-                                <YAxis
-                                    dataKey="label"
-                                    type="category"
-                                    width={100}
-                                    tick={{ fill: '#a1a1aa', fontSize: 11 }}
-                                    tickLine={false}
-                                    axisLine={false}
-                                />
-                                <Tooltip
-                                    cursor={{ fill: '#27272a' }}
-                                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
-                                    itemStyle={{ color: '#fff' }}
-                                    formatter={(value) => [
-                                        `${typeof value === 'number' ? value.toFixed(1) : value} ${METRICS[selectedMetric].unit}`,
-                                        'Average'
-                                    ]}
-                                />
-                                <Bar dataKey="avgScore" radius={[0, 4, 4, 0]} barSize={20}>
-                                    {stats.habitStats.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={METRICS[selectedMetric].color} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

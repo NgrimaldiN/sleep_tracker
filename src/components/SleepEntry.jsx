@@ -12,6 +12,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab }) {
     const [score, setScore] = useState('');
     const [notes, setNotes] = useState('');
     const [saved, setSaved] = useState(false);
+    const [bedtime, setBedtime] = useState('');
+    const [waketime, setWaketime] = useState('');
     const [durationHours, setDurationHours] = useState('');
     const [durationMinutes, setDurationMinutes] = useState('');
     const [deepHours, setDeepHours] = useState('');
@@ -26,6 +28,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab }) {
         if (existing) {
             setScore(existing.sleepScore || '');
             setNotes(existing.notes || '');
+            setBedtime(existing.bedtime || '');
+            setWaketime(existing.waketime || '');
             setDurationHours(existing.durationHours || '');
             setDurationMinutes(existing.durationMinutes || '');
             setDeepHours(existing.deepHours || '');
@@ -36,6 +40,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab }) {
         } else {
             setScore('');
             setNotes('');
+            setBedtime('');
+            setWaketime('');
             setDurationHours('');
             setDurationMinutes('');
             setDeepHours('');
@@ -47,6 +53,20 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab }) {
         setSaved(false);
     }, [date, dailyLog]);
 
+    // Auto-calculate duration from bedtime and waketime
+    useEffect(() => {
+        if (bedtime && waketime) {
+            const [bedH, bedM] = bedtime.split(':').map(Number);
+            const [wakeH, wakeM] = waketime.split(':').map(Number);
+
+            let diffMinutes = (wakeH * 60 + wakeM) - (bedH * 60 + bedM);
+            if (diffMinutes < 0) diffMinutes += 24 * 60; // Crossed midnight
+
+            setDurationHours(Math.floor(diffMinutes / 60));
+            setDurationMinutes(diffMinutes % 60);
+        }
+    }, [bedtime, waketime]);
+
     const handleSave = (e) => {
         e.preventDefault();
 
@@ -55,6 +75,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab }) {
             [date]: {
                 ...(prev[date] || { habits: [] }),
                 sleepScore: parseInt(score),
+                bedtime,
+                waketime,
                 durationHours: parseInt(durationHours) || 0,
                 durationMinutes: parseInt(durationMinutes) || 0,
                 deepHours: parseInt(deepHours) || 0,
@@ -118,9 +140,31 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab }) {
                         </div>
                     </div>
 
+                    {/* Bedtime & Waketime */}
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-zinc-400 ml-1">Bedtime</label>
+                            <input
+                                type="time"
+                                value={bedtime}
+                                onChange={(e) => setBedtime(e.target.value)}
+                                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white focus:outline-none focus:border-indigo-500/50 transition-all text-center [color-scheme:dark]"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-zinc-400 ml-1">Waketime</label>
+                            <input
+                                type="time"
+                                value={waketime}
+                                onChange={(e) => setWaketime(e.target.value)}
+                                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white focus:outline-none focus:border-indigo-500/50 transition-all text-center [color-scheme:dark]"
+                            />
+                        </div>
+                    </div>
+
                     {/* Duration */}
                     <div className="col-span-2 space-y-2">
-                        <label className="text-sm font-medium text-zinc-400 ml-1">Duration</label>
+                        <label className="text-sm font-medium text-zinc-400 ml-1">Duration (Auto-calc)</label>
                         <div className="flex gap-2">
                             <div className="relative flex-1">
                                 <input

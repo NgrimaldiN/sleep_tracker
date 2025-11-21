@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/sleep/(.*)", "destination": "/$1" },
+    { "source": "/sleep", "destination": "/index.html" }
+  ]
+}

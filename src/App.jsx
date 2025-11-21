@@ -1,27 +1,33 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Layout } from './components/Layout';
 import { HabitTracker } from './components/HabitTracker';
 import { SleepEntry } from './components/SleepEntry';
 import { Dashboard } from './components/Dashboard';
-import { useLocalStorage } from './hooks/useLocalStorage';
+import { useSupabase } from './hooks/useSupabase';
 
-const DEFAULT_HABITS = [
-  { id: 'caffeine', label: 'No caffeine after 2 PM' },
-  { id: 'screens', label: 'No screens 1h before bed' },
-  { id: 'read', label: 'Read a book' },
-  { id: 'magnesium', label: 'Took Magnesium' },
-  { id: 'meditation', label: 'Meditation (10m)' },
-  { id: 'hot_shower', label: 'Hot shower/bath' },
-];
+export default function App() {
+  const { dailyLog, setDailyLog, habits, setHabits, loading, error } = useSupabase();
+  const [currentPage, setCurrentPage] = React.useState('dashboard');
 
-function App() {
-  const [activeTab, setActiveTab] = useState('habits');
-  const [habits, setHabits] = useLocalStorage('sleep_tracker_habits', DEFAULT_HABITS);
-  const [dailyLog, setDailyLog] = useLocalStorage('sleep_tracker_logs', {});
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">
+        Loading...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-red-500">
+        Error: {error}
+      </div>
+    );
+  }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {activeTab === 'habits' && (
+    <Layout currentPage={currentPage} setCurrentPage={setCurrentPage}>
+      {currentPage === 'habits' && (
         <HabitTracker
           habits={habits}
           setHabits={setHabits}
@@ -29,16 +35,14 @@ function App() {
           setDailyLog={setDailyLog}
         />
       )}
-
-      {activeTab === 'log' && (
+      {currentPage === 'log' && (
         <SleepEntry
           dailyLog={dailyLog}
           setDailyLog={setDailyLog}
-          setActiveTab={setActiveTab}
+          onSave={() => setCurrentPage('dashboard')}
         />
       )}
-
-      {activeTab === 'dashboard' && (
+      {currentPage === 'dashboard' && (
         <Dashboard
           dailyLog={dailyLog}
           habits={habits}
@@ -47,5 +51,3 @@ function App() {
     </Layout>
   );
 }
-
-export default App;
