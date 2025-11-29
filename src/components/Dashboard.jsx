@@ -189,6 +189,13 @@ export function Dashboard({ dailyLog, habits }) {
         document.body.removeChild(link);
     };
 
+    const formatDuration = (hours) => {
+        if (!hours) return '0h 0m';
+        const h = Math.floor(hours);
+        const m = Math.round((hours - h) * 60);
+        return `${h}h ${m}m`;
+    };
+
     return (
         <div className="space-y-8 pb-24">
             <div className="flex items-center justify-between">
@@ -239,10 +246,12 @@ export function Dashboard({ dailyLog, habits }) {
                     <div className="flex items-baseline gap-1">
                         <div className="text-3xl font-bold text-white">
                             {selectedMetric === 'duration' || selectedMetric === 'deepSleep'
-                                ? stats.recentAvg.toFixed(1)
+                                ? formatDuration(stats.recentAvg)
                                 : Math.round(stats.recentAvg)}
                         </div>
-                        <span className="text-sm text-zinc-500 font-medium">{MetricConfig.unit}</span>
+                        {selectedMetric !== 'duration' && selectedMetric !== 'deepSleep' && (
+                            <span className="text-sm text-zinc-500 font-medium">{MetricConfig.unit}</span>
+                        )}
                     </div>
                 </div>
 
@@ -374,7 +383,9 @@ export function Dashboard({ dailyLog, habits }) {
                                 itemStyle={{ color: '#fff' }}
                                 labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
                                 formatter={(value) => [
-                                    `${value} ${MetricConfig.unit}`,
+                                    selectedMetric === 'duration' || selectedMetric === 'deepSleep'
+                                        ? formatDuration(value)
+                                        : `${value} ${MetricConfig.unit}`,
                                     MetricConfig.label
                                 ]}
                             />

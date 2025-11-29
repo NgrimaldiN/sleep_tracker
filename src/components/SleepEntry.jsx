@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Moon, Star, Save } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { toast } from 'sonner';
 
 export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }) {
     // Use selectedDate from props
@@ -86,6 +87,7 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
         });
 
         setSaved(true);
+        toast.success('Sleep entry saved successfully!');
         setTimeout(() => {
             setSaved(false);
             setActiveTab('dashboard');

@@ -4,6 +4,7 @@ import { HabitTracker } from './components/HabitTracker';
 import { SleepEntry } from './components/SleepEntry';
 import { Dashboard } from './components/Dashboard';
 import { useSupabase } from './hooks/useSupabase';
+import { Toaster } from 'sonner';
 
 export default function App() {
   const { dailyLog, setDailyLog, habits, setHabits, loading, error } = useSupabase();
@@ -39,6 +40,7 @@ export default function App() {
       selectedDate={selectedDate}
       setSelectedDate={setSelectedDate}
     >
+      <Toaster position="top-center" theme="dark" />
       {currentPage === 'habits' && (
         <HabitTracker
           habits={habits}
