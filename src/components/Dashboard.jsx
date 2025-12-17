@@ -83,22 +83,88 @@ export function Dashboard({ dailyLog, habits }) {
             const withHabit = entries.filter(e => e.habits?.includes(habit.id));
             const withoutHabit = entries.filter(e => !e.habits?.includes(habit.id));
 
-            if (withHabit.length === 0 && withoutHabit.length === 0) return null;
-
             const getAvg = (arr) => arr.length
                 ? arr.reduce((acc, curr) => acc + (curr[selectedMetric] || 0), 0) / arr.length
                 : 0;
 
-            const avgWith = withHabit.length ? getAvg(withHabit) : 0;
-            const avgWithout = withoutHabit.length ? getAvg(withoutHabit) : 0;
-
+            let avgWith = withHabit.length ? getAvg(withHabit) : 0;
+            let avgWithout = withoutHabit.length ? getAvg(withoutHabit) : 0;
             let impact = 0;
             let isSignificant = false;
+            let labelDetail = '';
 
+            // Check if we have enough data for standard "With vs Without" comparison
             if (withHabit.length > 0 && withoutHabit.length > 0) {
                 impact = avgWith - avgWithout;
                 isSignificant = true;
             }
+            // If not enough "without" data, but we have numeric/time data, try "High vs Low" or "Late vs Early"
+            else if ((habit.type === 'number' || habit.type === 'time') && withHabit.length >= 4) {
+                const values = withHabit
+                    .map(e => ({ entry: e, value: parseFloat(e.habitValues?.[habit.id]) }))
+                    .filter(item => !isNaN(item.value))
+                    .sort((a, b) => a.value - b.value);
+
+                if (values.length >= 4) {
+                    const medianIndex = Math.floor(values.length / 2);
+                    const median = values[medianIndex].value;
+
+                    const groupA = values.filter(v => v.value <= median); // Low / Early
+                    const groupB = values.filter(v => v.value > median);  // High / Late
+
+                    // For time, we might want to handle it differently if it crosses midnight, but simple sort works for now if format becomes comparable number
+                    // Assuming time is handled as string in DB, parseFloat might be NaN. 
+                    // If type is time, values are likely strings "HH:MM".
+
+                    if (habit.type === 'time') {
+                        // Re-process for Time
+                        const timeValues = withHabit
+                            .map(e => {
+                                const val = e.habitValues?.[habit.id];
+                                if (!val) return null;
+                                const [h, m] = val.split(':').map(Number);
+                                // Normalize for sorting (create value 0-24 or similar)
+                                // If hours < 5 (late night), treat as next day (add 24)
+                                let sortVal = h + m / 60;
+                                if (sortVal < 5) sortVal += 24;
+                                return { entry: e, value: sortVal, display: val };
+                            })
+                            .filter(Boolean)
+                            .sort((a, b) => a.value - b.value);
+
+                        if (timeValues.length >= 4) {
+                            const tMedianIndex = Math.floor(timeValues.length / 2);
+                            const tMedian = timeValues[tMedianIndex].value;
+
+                            const tGroupA = timeValues.filter(v => v.value <= tMedian); // Early
+                            const tGroupB = timeValues.filter(v => v.value > tMedian);  // Late
+
+                            if (tGroupA.length > 0 && tGroupB.length > 0) {
+                                const avgA = getAvg(tGroupA.map(v => v.entry));
+                                const avgB = getAvg(tGroupB.map(v => v.entry));
+
+                                impact = avgB - avgA;
+                                isSignificant = true;
+                                avgWith = avgB; // Show Avg for "Late" group
+                                avgWithout = avgA; // Show Avg for "Early" group
+                                labelDetail = '(Late vs Early)';
+                            }
+                        }
+                    } else if (groupA.length > 0 && groupB.length > 0) {
+                        // Numeric
+                        const avgA = getAvg(groupA.map(v => v.entry));
+                        const avgB = getAvg(groupB.map(v => v.entry));
+
+                        impact = avgB - avgA;
+                        isSignificant = true;
+                        avgWith = avgB; // Show Avg for "High" group
+                        avgWithout = avgA; // Show Avg for "Low" group
+                        labelDetail = '(High vs Low)';
+                    }
+                }
+            }
+
+            if (!isSignificant && withHabit.length === 0 && withoutHabit.length === 0) return null;
 
             let avgValue = null;
             if (habit.type === 'number' && withHabit.length > 0) {
@@ -113,7 +179,8 @@ export function Dashboard({ dailyLog, habits }) {
                 isSignificant,
                 countWith: withHabit.length,
                 countWithout: withoutHabit.length,
-                avgValue
+                avgValue,
+                labelDetail
             };
         }).flat().filter(Boolean).sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
 
@@ -375,9 +442,15 @@ export function Dashboard({ dailyLog, habits }) {
                         return (
                             <div key={habit.id} className={cn("flex items-center justify-between p-4 rounded-2xl border", colorClass)}>
                                 <div>
-                                    <div className="font-bold text-zinc-200">{habit.label}</div>
+                                    <div className="font-bold text-zinc-200">
+                                        {habit.label} <span className="text-xs text-zinc-500 font-normal">{habit.labelDetail}</span>
+                                    </div>
                                     <div className="text-xs text-zinc-500 mt-0.5">
-                                        {habit.countWith} days with {habit.avgValue ? `(avg ${habit.avgValue.toFixed(1)})` : ''} • {habit.countWithout} days without
+                                        {habit.labelDetail ? (
+                                            <span>Based on {habit.countWith} entries</span>
+                                        ) : (
+                                            <span>{habit.countWith} days with {habit.avgValue ? `(avg ${habit.avgValue.toFixed(1)})` : ''} • {habit.countWithout} days without</span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="text-right">

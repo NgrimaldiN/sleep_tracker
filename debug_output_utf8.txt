@@ -1,0 +1,33 @@
+﻿Fetching data...
+--- All Habits ---
+- [screens] No screens 1h before bed (Type: boolean)
+- [caffeine] No caffeine after 2 PM (Type: boolean)
+- [meal] Meal (Type: select)
+- [read_before_sleep] Read before sleep (Type: boolean)
+- [meal_time] Meal time (Type: time)
+- [number_of_hours_of_class] Number of hours of class (Type: number)
+- [number_of_hours_of_work] Number of hours of work (Type: number)
+- [sport] Sport (Type: select)
+- [screen_time_(phone)] Screen Time (Phone) (Type: number)
+
+Fetched 17 logs.
+
+--- Numeric Habit Analysis ---
+
+Analyzing Habit: Number of hours of class (number_of_hours_of_class)
+Days with value > 0: 8
+Days without value (0 or null): 9
+Stats: Min=3, Max=8, Avg=4.75
+Sample output values: 2025-11-21: 3, 2025-11-22: 6, 2025-11-28: 3, 2025-12-12: 8, 2025-12-11: 3
+
+Analyzing Habit: Number of hours of work (number_of_hours_of_work)
+Days with value > 0: 9
+Days without value (0 or null): 8
+Stats: Min=2, Max=9, Avg=4.33
+Sample output values: 2025-11-21: 5, 2025-12-14: 4, 2025-12-13: 4, 2025-11-28: 5, 2025-11-23: 9
+
+Analyzing Habit: Screen Time (Phone) (screen_time_(phone))
+Days with value > 0: 12
+Days without value (0 or null): 5
+Stats: Min=2, Max=144, Avg=15.08
+Sample output values: 2025-11-21: 2, 2025-12-14: 4, 2025-12-13: 4, 2025-11-22: 5, 2025-11-28: 144

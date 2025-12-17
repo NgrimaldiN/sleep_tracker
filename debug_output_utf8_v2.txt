@@ -1,0 +1,35 @@
+﻿Fetching data...
+
+Fetched 17 logs.
+
+--- Numeric Habit Analysis ---
+
+Analyzing Habit: Number of hours of class (number_of_hours_of_class)
+Days with value > 0 AND Sleep Score: 7
+Days without value AND Sleep Score: 4
+Sample days without habit (with score): [
+  { date: '2025-12-14', score: 89 },
+  { date: '2025-12-13', score: 95 },
+  { date: '2025-11-23', score: 83 },
+  { date: '2025-12-15', score: 74 }
+]
+Stats: Min=3, Max=8, Avg=5.00
+Sample output values: 2025-11-21: 3, 2025-11-22: 6, 2025-11-28: 3, 2025-12-12: 8, 2025-12-11: 3
+
+Analyzing Habit: Number of hours of work (number_of_hours_of_work)
+Days with value > 0 AND Sleep Score: 8
+Days without value AND Sleep Score: 3
+Sample days without habit (with score): [
+  { date: '2025-11-22', score: 76 },
+  { date: '2025-12-12', score: 92 },
+  { date: '2025-12-10', score: 90 }
+]
+Stats: Min=2, Max=9, Avg=4.63
+Sample output values: 2025-11-21: 5, 2025-12-14: 4, 2025-12-13: 4, 2025-11-28: 5, 2025-11-23: 9
+
+Analyzing Habit: Screen Time (Phone) (screen_time_(phone))
+Days with value > 0 AND Sleep Score: 11
+Days without value AND Sleep Score: 0
+Reason for no result: No days WITHOUT this habit have a valid Sleep Score recorded.
+Stats: Min=2, Max=144, Avg=16.09
+Sample output values: 2025-11-21: 2, 2025-12-14: 4, 2025-12-13: 4, 2025-11-22: 5, 2025-11-28: 144
