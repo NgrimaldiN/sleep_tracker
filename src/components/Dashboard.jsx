@@ -149,6 +149,60 @@ export function Dashboard({ dailyLog, habits }) {
             }
         });
 
+        // Calculate Bedtime Impact
+        const bedtimeImpact = {};
+        entries.forEach(entry => {
+            if (entry.bedtime) {
+                const hour = parseInt(entry.bedtime.split(':')[0]);
+                // Handle midnight crossing (0, 1, 2 should be after 23)
+                const sortKey = hour < 12 ? hour + 24 : hour;
+
+                if (!bedtimeImpact[sortKey]) {
+                    bedtimeImpact[sortKey] = {
+                        hourLabel: `${hour}h`,
+                        total: 0,
+                        count: 0
+                    };
+                }
+                bedtimeImpact[sortKey].total += (entry[selectedMetric] || 0);
+                bedtimeImpact[sortKey].count += 1;
+            }
+        });
+
+        const bedtimeData = Object.entries(bedtimeImpact)
+            .sort(([keyA], [keyB]) => parseInt(keyA) - parseInt(keyB))
+            .map(([_, data]) => ({
+                label: data.hourLabel,
+                value: parseFloat((data.total / data.count).toFixed(1)),
+                count: data.count
+            }));
+
+        // Calculate Day of Week Impact
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const dayImpact = {};
+        entries.forEach(entry => {
+            const date = new Date(entry.date);
+            const dayIndex = date.getDay(); // 0 = Sun
+
+            if (!dayImpact[dayIndex]) {
+                dayImpact[dayIndex] = { total: 0, count: 0 };
+            }
+            dayImpact[dayIndex].total += (entry[selectedMetric] || 0);
+            dayImpact[dayIndex].count += 1;
+        });
+
+        // Reorder to start with Mon (index 1) -> Sun (index 0)
+        const orderedDays = [1, 2, 3, 4, 5, 6, 0];
+        const dayOfWeekData = orderedDays.map(dayIndex => {
+            const data = dayImpact[dayIndex];
+            if (!data) return null;
+            return {
+                label: days[dayIndex],
+                value: parseFloat((data.total / data.count).toFixed(1)),
+                count: data.count
+            };
+        }).filter(Boolean);
+
         return {
             entries,
             habitImpacts,
@@ -156,7 +210,9 @@ export function Dashboard({ dailyLog, habits }) {
             sleepDebt,
             hasDebtData: last7Days.length > 0,
             optimalBedtime,
-            maxAvgScore
+            maxAvgScore,
+            bedtimeData,
+            dayOfWeekData
         };
     }, [dailyLog, habits, selectedMetric]);
 
@@ -399,6 +455,87 @@ export function Dashboard({ dailyLog, habits }) {
                             />
                         </LineChart>
                     </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Bedtime & Day of Week Analysis Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Bedtime Impact Chart */}
+                <div className="p-6 rounded-3xl bg-zinc-900/50 border border-zinc-800">
+                    <h3 className="text-lg font-bold text-white mb-2">Bedtime Impact</h3>
+                    <p className="text-sm text-zinc-400 mb-6">How average {MetricConfig.label.toLowerCase()} changes by bedtime hour</p>
+                    <div className="h-48 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={stats.bedtimeData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                                <XAxis
+                                    dataKey="label"
+                                    stroke="#52525b"
+                                    tick={{ fontSize: 12 }}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    dy={10}
+                                />
+                                <YAxis hide />
+                                <Tooltip
+                                    cursor={{ fill: '#27272a' }}
+                                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                                    itemStyle={{ color: '#fff' }}
+                                    labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
+                                    formatter={(value) => [
+                                        selectedMetric === 'duration' || selectedMetric === 'deepSleep'
+                                            ? formatDuration(value)
+                                            : `${value} ${MetricConfig.unit}`,
+                                        'Average'
+                                    ]}
+                                />
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                    {stats.bedtimeData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={MetricConfig.color} fillOpacity={0.8} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Day of Week Analysis Chart */}
+                <div className="p-6 rounded-3xl bg-zinc-900/50 border border-zinc-800">
+                    <h3 className="text-lg font-bold text-white mb-2">Day of Week</h3>
+                    <p className="text-sm text-zinc-400 mb-6">Average {MetricConfig.label.toLowerCase()} by day</p>
+                    <div className="h-48 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={stats.dayOfWeekData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                                <XAxis
+                                    dataKey="label"
+                                    stroke="#52525b"
+                                    tick={{ fontSize: 12 }}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    dy={10}
+                                />
+                                <YAxis hide />
+                                <Tooltip
+                                    cursor={{ fill: '#27272a' }}
+                                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                                    itemStyle={{ color: '#fff' }}
+                                    labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
+                                    formatter={(value) => [
+                                        selectedMetric === 'duration' || selectedMetric === 'deepSleep'
+                                            ? formatDuration(value)
+                                            : `${value} ${MetricConfig.unit}`,
+                                        'Average'
+                                    ]}
+                                />
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                    {stats.dayOfWeekData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={MetricConfig.color} fillOpacity={0.8} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             </div>
         </div>
