@@ -1,0 +1,26 @@
+﻿Fetching all logs to audit...
+Total Logs: 17
+
+--- Sample Data ---
+2025-11-14: Score=58, Meditation=false, Status=Bad (Potentially Injected)
+2025-11-20: Score=54, Meditation=false, Status=Bad (Potentially Injected)
+2025-11-21: Score=86, Meditation=true, Status=Good
+2025-11-22: Score=76, Meditation=true, Status=Neutral
+2025-11-23: Score=83, Meditation=true, Status=Good
+2025-11-27: Score=56, Meditation=false, Status=Bad (Potentially Injected)
+2025-11-28: Score=97, Meditation=true, Status=Good
+2025-12-01: Score=57, Meditation=false, Status=Bad (Potentially Injected)
+2025-12-08: Score=63, Meditation=false, Status=Bad (Potentially Injected)
+2025-12-09: Score=85, Meditation=true, Status=Good
+2025-12-10: Score=90, Meditation=true, Status=Good
+2025-12-11: Score=79, Meditation=true, Status=Neutral
+2025-12-12: Score=92, Meditation=true, Status=Good
+2025-12-13: Score=95, Meditation=true, Status=Good
+2025-12-14: Score=89, Meditation=true, Status=Good
+2025-12-15: Score=74, Meditation=true, Status=Neutral
+2025-12-16: Score=64, Meditation=false, Status=Bad (Potentially Injected)
+
+Summary:
+Good Days (>80): 8
+Bad Days (<70): 6
+(We injected approx 6 bad days and 12 meditation days)

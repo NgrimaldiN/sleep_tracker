@@ -60,9 +60,15 @@ export function Dashboard({ dailyLog, habits }) {
                     let impact = 0;
                     let isSignificant = false;
 
+
                     if (withOption.length > 0 && withoutOption.length > 0) {
                         impact = avgWith - avgWithout;
                         isSignificant = true;
+                    }
+
+                    // ENFORCE MINIMUM THRESHOLD for Select Options
+                    if (withOption.length < 3) {
+                        isSignificant = false;
                     }
 
                     return {
@@ -164,6 +170,11 @@ export function Dashboard({ dailyLog, habits }) {
                 }
             }
 
+            // ENFORCE MINIMUM THRESHOLD: Need at least 3 days of "with habit" data
+            if (withHabit.length < 3) {
+                isSignificant = false;
+            }
+
             if (!isSignificant && withHabit.length === 0 && withoutHabit.length === 0) return null;
 
             let avgValue = null;
@@ -182,7 +193,13 @@ export function Dashboard({ dailyLog, habits }) {
                 avgValue,
                 labelDetail
             };
-        }).flat().filter(Boolean).sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
+        }).flat().filter(Boolean).sort((a, b) => {
+            // Prioritize significant items first
+            if (a.isSignificant && !b.isSignificant) return -1;
+            if (!a.isSignificant && b.isSignificant) return 1;
+            // Then sort by impact magnitude
+            return Math.abs(b.impact) - Math.abs(a.impact);
+        });
 
         const recentAvg = entries.slice(-7).reduce((acc, curr) => acc + (curr[selectedMetric] || 0), 0) / Math.min(entries.length, 7);
 
