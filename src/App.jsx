@@ -5,6 +5,7 @@ import { SleepEntry } from './components/SleepEntry';
 import { Dashboard } from './components/Dashboard';
 import { useSupabase } from './hooks/useSupabase';
 import { Toaster } from 'sonner';
+import { getRelativeLocalDate } from './lib/date';
 
 export default function App() {
   const { dailyLog, setDailyLog, habits, setHabits, loading, error } = useSupabase();
@@ -12,9 +13,7 @@ export default function App() {
 
   // Default to yesterday (Paris time logic handled by user's local system time - 24h)
   const [selectedDate, setSelectedDate] = React.useState(() => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    return yesterday.toISOString().split('T')[0];
+    return getRelativeLocalDate(new Date(), -1);
   });
 
   if (loading) {

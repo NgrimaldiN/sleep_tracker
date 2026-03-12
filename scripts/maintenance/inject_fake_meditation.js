@@ -9,7 +9,8 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false }
 });
 
-const LOG_FILE = 'fake_meditation_dates.json';
+const LOG_FILE = new URL('./logs/fake_meditation_dates.json', import.meta.url);
+const LOG_FILE_LABEL = 'scripts/maintenance/logs/fake_meditation_dates.json';
 
 async function injectData() {
     console.log('--- Starting Fake Data Injection ---');
@@ -101,7 +102,7 @@ async function injectData() {
     // 5. Save log for revert
     fs.writeFileSync(LOG_FILE, JSON.stringify(modifiedDates, null, 2));
     console.log(`\nSuccess! Injected data on ${modifiedDates.length} days.`);
-    console.log(`Modified dates saved to ${LOG_FILE} for easy revert.`);
+    console.log(`Modified dates saved to ${LOG_FILE_LABEL} for easy revert.`);
 }
 
 injectData();

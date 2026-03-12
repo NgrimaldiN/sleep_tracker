@@ -9,13 +9,14 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false }
 });
 
-const LOG_FILE = 'fake_meditation_dates.json';
+const LOG_FILE = new URL('./logs/fake_meditation_dates.json', import.meta.url);
+const LOG_FILE_LABEL = 'scripts/maintenance/logs/fake_meditation_dates.json';
 
 async function revertData() {
     console.log('--- Starting Fake Data Cleanup ---');
 
     if (!fs.existsSync(LOG_FILE)) {
-        console.error(`Log file ${LOG_FILE} not found. Cannot revert automatically.`);
+        console.error(`Log file ${LOG_FILE_LABEL} not found. Cannot revert automatically.`);
         return;
     }
 

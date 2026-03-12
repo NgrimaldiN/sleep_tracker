@@ -9,7 +9,8 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false }
 });
 
-const LOG_FILE = 'top7_meditation_log.json';
+const LOG_FILE = new URL('./logs/top7_meditation_log.json', import.meta.url);
+const LOG_FILE_LABEL = 'scripts/maintenance/logs/top7_meditation_log.json';
 
 async function injectTop7() {
     console.log('--- Injecting Meditation for Top 7 Days ---');
@@ -75,6 +76,7 @@ async function injectTop7() {
     // Save log for revert (just list of dates involved)
     fs.writeFileSync(LOG_FILE, JSON.stringify(modifications, null, 2));
     console.log(`\nOperation Complete. Modified ${modifications.length} entries.`);
+    console.log(`Saved operation log to ${LOG_FILE_LABEL}.`);
 }
 
 injectTop7();

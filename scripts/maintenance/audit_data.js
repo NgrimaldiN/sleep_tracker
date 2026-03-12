@@ -25,8 +25,6 @@ async function auditData() {
 
     let goodDays = 0;
     let badDays = 0;
-    let modifiedDays = 0;
-
     console.log('\n--- Sample Data ---');
     logs.forEach(log => {
         const s = log.data.sleepScore;

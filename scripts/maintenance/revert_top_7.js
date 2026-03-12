@@ -9,7 +9,8 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false }
 });
 
-const LOG_FILE = 'top7_meditation_log.json';
+const LOG_FILE = new URL('./logs/top7_meditation_log.json', import.meta.url);
+const LOG_FILE_LABEL = 'scripts/maintenance/logs/top7_meditation_log.json';
 
 async function revertTop7() {
     console.log('--- Reverting Top 7 Injection ---');
@@ -22,7 +23,7 @@ async function revertTop7() {
     // No, let's stick to the log file to be precise about what we touched.
 
     if (!fs.existsSync(LOG_FILE)) {
-        console.error('Log file not found.');
+        console.error(`Log file ${LOG_FILE_LABEL} not found.`);
         return;
     }
 

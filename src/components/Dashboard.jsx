@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { Trophy, TrendingUp, Activity, Battery, Clock, Heart } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { formatLocalDate, parseLocalDate } from '../lib/date';
 
 const METRICS = {
     sleepScore: { label: 'Sleep Score', color: '#8b5cf6', icon: MoonIcon, unit: '', inverse: false },
@@ -36,7 +37,7 @@ export function Dashboard({ dailyLog, habits }) {
                 };
             })
             .filter(entry => entry.sleepScore !== null && entry.sleepScore !== undefined)
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+            .sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
         if (entries.length === 0) return null;
 
@@ -255,7 +256,7 @@ export function Dashboard({ dailyLog, habits }) {
 
         const bedtimeData = Object.entries(bedtimeImpact)
             .sort(([keyA], [keyB]) => parseInt(keyA) - parseInt(keyB))
-            .map(([_, data]) => ({
+            .map(([, data]) => ({
                 label: data.hourLabel,
                 value: parseFloat((data.total / data.count).toFixed(1)),
                 count: data.count
@@ -264,8 +265,8 @@ export function Dashboard({ dailyLog, habits }) {
         // Calculate Day of Week Impact
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const dayImpact = {};
-        entries.forEach(entry => {
-            const date = new Date(entry.date);
+            entries.forEach(entry => {
+            const date = parseLocalDate(entry.date);
             const dayIndex = date.getDay(); // 0 = Sun
 
             if (!dayImpact[dayIndex]) {
@@ -323,7 +324,7 @@ export function Dashboard({ dailyLog, habits }) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `sleep_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+        link.download = `sleep_tracker_backup_${formatLocalDate(new Date())}.json`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -510,7 +511,7 @@ export function Dashboard({ dailyLog, habits }) {
                             <XAxis
                                 dataKey="date"
                                 stroke="#52525b"
-                                tickFormatter={(d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                tickFormatter={(d) => parseLocalDate(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                 tick={{ fontSize: 12 }}
                                 tickLine={false}
                                 axisLine={false}

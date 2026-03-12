@@ -9,20 +9,21 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false }
 });
 
-const LOG_FILE = 'fake_bad_days_dates.json';
+const LOG_FILE = new URL('./logs/fake_bad_days_dates.json', import.meta.url);
+const LOG_FILE_LABEL = 'scripts/maintenance/logs/fake_bad_days_dates.json';
 
 async function revertBadDays() {
     console.log('--- Reverting Fake Bad Days ---');
 
     if (!fs.existsSync(LOG_FILE)) {
-        console.error(`Log file ${LOG_FILE} not found.`);
+        console.error(`Log file ${LOG_FILE_LABEL} not found.`);
         return;
     }
 
     const datesToRevert = JSON.parse(fs.readFileSync(LOG_FILE, 'utf8'));
 
     for (const date of datesToRevert) {
-        const { data: log, error: fetchError } = await supabase
+        const { data: log } = await supabase
             .from('daily_logs')
             .select('*')
             .eq('date', date)

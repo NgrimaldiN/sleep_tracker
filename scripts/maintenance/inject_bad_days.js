@@ -9,7 +9,8 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false }
 });
 
-const LOG_FILE = 'fake_bad_days_dates.json';
+const LOG_FILE = new URL('./logs/fake_bad_days_dates.json', import.meta.url);
+const LOG_FILE_LABEL = 'scripts/maintenance/logs/fake_bad_days_dates.json';
 
 async function injectBadDays() {
     console.log('--- Injecting Fake Bad Days (Control Group) ---');
@@ -65,7 +66,7 @@ async function injectBadDays() {
     // Save simple list of dates for revert
     fs.writeFileSync(LOG_FILE, JSON.stringify(modifiedDates.map(d => d.date), null, 2));
     console.log(`\nModified ${modifiedDates.length} days.`);
-    console.log(`Saved to ${LOG_FILE} for revert.`);
+    console.log(`Saved to ${LOG_FILE_LABEL} for revert.`);
 }
 
 injectBadDays();

@@ -1,96 +1,112 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Moon, Star, Save } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, Moon, Save } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 
-export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }) {
-    // Use selectedDate from props
+function formatFormValue(value) {
+    return value === null || value === undefined ? '' : String(value);
+}
+
+function buildFormState(entry) {
+    return {
+        score: formatFormValue(entry?.sleepScore),
+        notes: entry?.notes || '',
+        bedtime: entry?.bedtime || '',
+        waketime: entry?.waketime || '',
+        durationHours: formatFormValue(entry?.durationHours),
+        durationMinutes: formatFormValue(entry?.durationMinutes),
+        deepHours: formatFormValue(entry?.deepHours),
+        deepMinutes: formatFormValue(entry?.deepMinutes),
+        bodyBattery: formatFormValue(entry?.bodyBattery),
+        hrv: formatFormValue(entry?.hrv),
+        rhr: formatFormValue(entry?.rhr),
+    };
+}
+
+function calculateDuration(bedtime, waketime) {
+    if (!bedtime || !waketime) {
+        return null;
+    }
+
+    const [bedH, bedM] = bedtime.split(':').map(Number);
+    const [wakeH, wakeM] = waketime.split(':').map(Number);
+
+    let diffMinutes = (wakeH * 60 + wakeM) - (bedH * 60 + bedM);
+    if (diffMinutes < 0) {
+        diffMinutes += 24 * 60;
+    }
+
+    return {
+        durationHours: String(Math.floor(diffMinutes / 60)),
+        durationMinutes: String(diffMinutes % 60),
+    };
+}
+
+export function SleepEntry({ dailyLog, setDailyLog, onSave, selectedDate }) {
     const date = selectedDate;
+    const [drafts, setDrafts] = useState({});
+    const [savedDate, setSavedDate] = useState(null);
 
-    const [score, setScore] = useState('');
-    const [notes, setNotes] = useState('');
-    const [saved, setSaved] = useState(false);
-    const [bedtime, setBedtime] = useState('');
-    const [waketime, setWaketime] = useState('');
-    const [durationHours, setDurationHours] = useState('');
-    const [durationMinutes, setDurationMinutes] = useState('');
-    const [deepHours, setDeepHours] = useState('');
-    const [deepMinutes, setDeepMinutes] = useState('');
-    const [bodyBattery, setBodyBattery] = useState('');
-    const [hrv, setHrv] = useState('');
-    const [rhr, setRhr] = useState('');
+    const form = drafts[date] ?? buildFormState(dailyLog[date]);
+    const saved = savedDate === date;
 
-    // Load existing data for selected date
-    useEffect(() => {
-        const existing = dailyLog[date];
-        if (existing) {
-            setScore(existing.sleepScore || '');
-            setNotes(existing.notes || '');
-            setBedtime(existing.bedtime || '');
-            setWaketime(existing.waketime || '');
-            setDurationHours(existing.durationHours || '');
-            setDurationMinutes(existing.durationMinutes || '');
-            setDeepHours(existing.deepHours || '');
-            setDeepMinutes(existing.deepMinutes || '');
-            setBodyBattery(existing.bodyBattery || '');
-            setHrv(existing.hrv || '');
-            setRhr(existing.rhr || '');
-        } else {
-            setScore('');
-            setNotes('');
-            setBedtime('');
-            setWaketime('');
-            setDurationHours('');
-            setDurationMinutes('');
-            setDeepHours('');
-            setDeepMinutes('');
-            setBodyBattery('');
-            setHrv('');
-            setRhr('');
+    const updateForm = (updates) => {
+        setDrafts((prev) => {
+            const base = prev[date] ?? buildFormState(dailyLog[date]);
+            return {
+                ...prev,
+                [date]: {
+                    ...base,
+                    ...updates,
+                },
+            };
+        });
+    };
+
+    const updateTimeField = (field, value) => {
+        const nextForm = {
+            ...(drafts[date] ?? buildFormState(dailyLog[date])),
+            [field]: value,
+        };
+        const duration = calculateDuration(nextForm.bedtime, nextForm.waketime);
+
+        if (duration) {
+            nextForm.durationHours = duration.durationHours;
+            nextForm.durationMinutes = duration.durationMinutes;
         }
-        setSaved(false);
-    }, [date, dailyLog]);
 
-    // Auto-calculate duration from bedtime and waketime
-    useEffect(() => {
-        if (bedtime && waketime) {
-            const [bedH, bedM] = bedtime.split(':').map(Number);
-            const [wakeH, wakeM] = waketime.split(':').map(Number);
-
-            let diffMinutes = (wakeH * 60 + wakeM) - (bedH * 60 + bedM);
-            if (diffMinutes < 0) diffMinutes += 24 * 60; // Crossed midnight
-
-            setDurationHours(Math.floor(diffMinutes / 60));
-            setDurationMinutes(diffMinutes % 60);
-        }
-    }, [bedtime, waketime]);
+        setDrafts((prev) => ({
+            ...prev,
+            [date]: nextForm,
+        }));
+    };
 
     const handleSave = (e) => {
         e.preventDefault();
 
-        setDailyLog({
-            ...dailyLog,
+        setDailyLog((prev) => ({
+            ...prev,
             [date]: {
-                ...(dailyLog[date] || { habits: [] }),
-                sleepScore: parseInt(score),
-                bedtime,
-                waketime,
-                durationHours: parseInt(durationHours) || 0,
-                durationMinutes: parseInt(durationMinutes) || 0,
-                deepHours: parseInt(deepHours) || 0,
-                deepMinutes: parseInt(deepMinutes) || 0,
-                bodyBattery: parseInt(bodyBattery) || 0,
-                hrv: parseInt(hrv) || 0,
-                rhr: parseInt(rhr) || 0,
-                notes
+                ...(prev[date] || { habits: [] }),
+                sleepScore: parseInt(form.score, 10),
+                bedtime: form.bedtime,
+                waketime: form.waketime,
+                durationHours: parseInt(form.durationHours, 10) || 0,
+                durationMinutes: parseInt(form.durationMinutes, 10) || 0,
+                deepHours: parseInt(form.deepHours, 10) || 0,
+                deepMinutes: parseInt(form.deepMinutes, 10) || 0,
+                bodyBattery: parseInt(form.bodyBattery, 10) || 0,
+                hrv: parseInt(form.hrv, 10) || 0,
+                rhr: parseInt(form.rhr, 10) || 0,
+                notes: form.notes,
             }
-        });
+        }));
 
-        setSaved(true);
+        setSavedDate(date);
         toast.success('Sleep entry saved successfully!');
         setTimeout(() => {
-            setSaved(false);
-            setActiveTab('dashboard');
+            setSavedDate((current) => (current === date ? null : current));
+            onSave?.();
         }, 1500);
     };
 
@@ -126,8 +142,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                                     type="number"
                                     min="0"
                                     max="100"
-                                    value={score}
-                                    onChange={(e) => setScore(e.target.value)}
+                                    value={form.score}
+                                    onChange={(e) => updateForm({ score: e.target.value })}
                                     placeholder="85"
                                     className="w-full bg-zinc-900/80 border border-zinc-800 rounded-2xl pl-12 pr-4 py-6 text-4xl font-bold text-white placeholder:text-zinc-700 focus:outline-none focus:border-indigo-500/50 transition-all"
                                 />
@@ -142,8 +158,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                             <label className="text-sm font-medium text-zinc-400 ml-1">Bedtime</label>
                             <input
                                 type="time"
-                                value={bedtime}
-                                onChange={(e) => setBedtime(e.target.value)}
+                                value={form.bedtime}
+                                onChange={(e) => updateTimeField('bedtime', e.target.value)}
                                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white focus:outline-none focus:border-indigo-500/50 transition-all text-center [color-scheme:dark]"
                             />
                         </div>
@@ -151,8 +167,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                             <label className="text-sm font-medium text-zinc-400 ml-1">Waketime</label>
                             <input
                                 type="time"
-                                value={waketime}
-                                onChange={(e) => setWaketime(e.target.value)}
+                                value={form.waketime}
+                                onChange={(e) => updateTimeField('waketime', e.target.value)}
                                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white focus:outline-none focus:border-indigo-500/50 transition-all text-center [color-scheme:dark]"
                             />
                         </div>
@@ -167,8 +183,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                                     type="number"
                                     min="0"
                                     max="24"
-                                    value={durationHours}
-                                    onChange={(e) => setDurationHours(e.target.value)}
+                                    value={form.durationHours}
+                                    onChange={(e) => updateForm({ durationHours: e.target.value })}
                                     placeholder="7"
                                     className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white placeholder:text-zinc-700 focus:outline-none focus:border-indigo-500/50 transition-all text-center"
                                 />
@@ -179,8 +195,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                                     type="number"
                                     min="0"
                                     max="59"
-                                    value={durationMinutes}
-                                    onChange={(e) => setDurationMinutes(e.target.value)}
+                                    value={form.durationMinutes}
+                                    onChange={(e) => updateForm({ durationMinutes: e.target.value })}
                                     placeholder="30"
                                     className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white placeholder:text-zinc-700 focus:outline-none focus:border-indigo-500/50 transition-all text-center"
                                 />
@@ -198,8 +214,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                                     type="number"
                                     min="0"
                                     max="24"
-                                    value={deepHours}
-                                    onChange={(e) => setDeepHours(e.target.value)}
+                                    value={form.deepHours}
+                                    onChange={(e) => updateForm({ deepHours: e.target.value })}
                                     placeholder="1"
                                     className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white placeholder:text-zinc-700 focus:outline-none focus:border-indigo-500/50 transition-all text-center"
                                 />
@@ -210,8 +226,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                                     type="number"
                                     min="0"
                                     max="59"
-                                    value={deepMinutes}
-                                    onChange={(e) => setDeepMinutes(e.target.value)}
+                                    value={form.deepMinutes}
+                                    onChange={(e) => updateForm({ deepMinutes: e.target.value })}
                                     placeholder="20"
                                     className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white placeholder:text-zinc-700 focus:outline-none focus:border-indigo-500/50 transition-all text-center"
                                 />
@@ -228,8 +244,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                                 type="number"
                                 min="0"
                                 max="100"
-                                value={bodyBattery}
-                                onChange={(e) => setBodyBattery(e.target.value)}
+                                value={form.bodyBattery}
+                                onChange={(e) => updateForm({ bodyBattery: e.target.value })}
                                 placeholder="80"
                                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white placeholder:text-zinc-700 focus:outline-none focus:border-indigo-500/50 transition-all"
                             />
@@ -242,8 +258,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                         <div className="relative">
                             <input
                                 type="number"
-                                value={hrv}
-                                onChange={(e) => setHrv(e.target.value)}
+                                value={form.hrv}
+                                onChange={(e) => updateForm({ hrv: e.target.value })}
                                 placeholder="45"
                                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white placeholder:text-zinc-700 focus:outline-none focus:border-indigo-500/50 transition-all"
                             />
@@ -256,8 +272,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                         <div className="relative">
                             <input
                                 type="number"
-                                value={rhr}
-                                onChange={(e) => setRhr(e.target.value)}
+                                value={form.rhr}
+                                onChange={(e) => updateForm({ rhr: e.target.value })}
                                 placeholder="55"
                                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xl font-bold text-white placeholder:text-zinc-700 focus:outline-none focus:border-indigo-500/50 transition-all"
                             />
@@ -269,8 +285,8 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
                 <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-400 ml-1">Notes</label>
                     <textarea
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
+                        value={form.notes}
+                        onChange={(e) => updateForm({ notes: e.target.value })}
                         placeholder="Woke up once, felt refreshed..."
                         rows={3}
                         className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all resize-none"
@@ -279,7 +295,7 @@ export function SleepEntry({ dailyLog, setDailyLog, setActiveTab, selectedDate }
 
                 <button
                     type="submit"
-                    disabled={!score}
+                    disabled={!form.score}
                     className={cn(
                         "w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all duration-300",
                         saved
