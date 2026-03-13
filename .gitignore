@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Swift / Xcode local build artifacts
+.build/
+.cache/
+.swift-home/
+.xcodebuild/
+*.xcuserstate
+xcuserdata/
+
+# Local planning / private sample data
+task_plan.md
+findings.md
+progress.md
+photo_garmin/
+audio_samples/

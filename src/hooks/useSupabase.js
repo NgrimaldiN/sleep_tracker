@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
+export function resolveUpdatedDailyLog(currentLog, newLogOrUpdater) {
+    return typeof newLogOrUpdater === 'function'
+        ? newLogOrUpdater(currentLog)
+        : newLogOrUpdater;
+}
+
 export function useSupabase() {
     const [dailyLog, setDailyLog] = useState({});
     const [habits, setHabits] = useState([]);
@@ -96,17 +102,8 @@ export function useSupabase() {
 
     // Sync Daily Log to Supabase
     const updateDailyLog = useCallback(async (newLogOrUpdater) => {
-        // Handle functional updates
-        let newLog;
-        if (typeof newLogOrUpdater === 'function') {
-            setDailyLog(prev => {
-                newLog = newLogOrUpdater(prev);
-                return newLog;
-            });
-        } else {
-            newLog = newLogOrUpdater;
-            setDailyLog(newLog);
-        }
+        const newLog = resolveUpdatedDailyLog(dailyLog, newLogOrUpdater);
+        setDailyLog(newLog);
 
         try {
             const updates = Object.entries(newLog).map(([date, data]) => ({
@@ -124,7 +121,7 @@ export function useSupabase() {
         } catch (err) {
             console.error('Error syncing logs:', err);
         }
-    }, []);
+    }, [dailyLog]);
 
     return { dailyLog, setDailyLog: updateDailyLog, habits, setHabits: updateHabits, loading, error };
 }
