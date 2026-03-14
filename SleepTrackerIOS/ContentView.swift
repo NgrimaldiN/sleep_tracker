@@ -6,6 +6,7 @@ struct ContentView: View {
     @ObservedObject var appModel: AppModel
     @ObservedObject var alarmModel: AlarmFeatureModel
     @State private var selectedTab: AppTab = .home
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -77,6 +78,28 @@ struct ContentView: View {
                 await alarmModel.bootstrap()
             }
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            Task {
+                await alarmModel.handleScenePhase(newPhase)
+            }
+        }
+        .onChange(of: alarmModel.missionState.isPresented) { _, isPresented in
+            if isPresented {
+                selectedTab = .alarm
+            }
+        }
+        .fullScreenCover(
+            isPresented: Binding(
+                get: { alarmModel.missionState.isPresented },
+                set: { _ in }
+            )
+        ) {
+            ShowerMissionView(alarmModel: alarmModel)
+                .interactiveDismissDisabled()
+        }
+        .task(id: alarmModel.missionState.isPresented) {
+            await alarmModel.ensureWakeAudioForPresentedMission()
+        }
     }
 }
 
@@ -87,6 +110,128 @@ private enum AppTab: Hashable {
     case insights
     case history
     case settings
+}
+
+private struct ShowerMissionView: View {
+    @ObservedObject var alarmModel: AlarmFeatureModel
+    @State private var isHoldButtonPressed = false
+
+    var body: some View {
+        ZStack {
+            AppBackground()
+
+            VStack(alignment: .leading, spacing: 22) {
+                Text("Shower Mission")
+                    .font(.custom("AvenirNext-Bold", size: 34))
+                    .foregroundStyle(.white)
+
+                Text("Wake notification fired at \(alarmModel.missionState.scheduledTimeLabel). Finish waking up by turning on the shower.")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.82))
+
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(alarmModel.missionState.statusLine)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.white)
+
+                    Text(alarmModel.missionState.detailLine)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.72))
+
+                    if let prediction = alarmModel.missionState.latestPrediction {
+                        HStack(spacing: 12) {
+                            missionSignalPill(
+                                title: prediction.label == .showerOn ? "Leaning shower" : "Leaning background",
+                                value: prediction.label == .showerOn ? "Shower" : "Not shower"
+                            )
+                            missionSignalPill(
+                                title: "Margin",
+                                value: String(format: "%.2f", prediction.margin)
+                            )
+                        }
+                    }
+                }
+                .padding(20)
+                .background(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+                )
+
+                if !alarmModel.missionState.hasConfirmedShower {
+                    holdToVerifyButton
+                }
+
+                Spacer()
+            }
+            .padding(24)
+        }
+    }
+
+    private func missionSignalPill(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.58))
+            Text(value)
+                .font(.headline)
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.18))
+        )
+    }
+
+    private var holdToVerifyButton: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(alarmModel.missionState.isListening ? "Keep holding" : "Hold to verify shower")
+                .font(.headline)
+                .foregroundStyle(alarmModel.missionState.isListening ? Color.nightInk : .white)
+
+            Text(
+                alarmModel.missionState.isListening
+                ? "The alarm is muted only while you keep pressing. Turn on the shower now."
+                : "Press and hold, then turn on the shower. Releasing before confirmation makes the alarm sound again."
+            )
+            .font(.subheadline)
+            .foregroundStyle(alarmModel.missionState.isListening ? Color.nightInk.opacity(0.78) : .white.opacity(0.72))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(alarmModel.missionState.isListening ? Color.sunAccent : Color.white.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.white.opacity(alarmModel.missionState.isListening ? 0 : 0.12), lineWidth: 1)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    guard !isHoldButtonPressed else { return }
+                    isHoldButtonPressed = true
+                    Task {
+                        await alarmModel.beginMissionVerificationHold()
+                    }
+                }
+                .onEnded { _ in
+                    guard isHoldButtonPressed else { return }
+                    isHoldButtonPressed = false
+                    Task {
+                        await alarmModel.endMissionVerificationHold()
+                    }
+                }
+        )
+        .onChange(of: alarmModel.missionState.hasConfirmedShower) { _, confirmed in
+            guard confirmed, isHoldButtonPressed else { return }
+            isHoldButtonPressed = false
+        }
+    }
 }
 
 private struct HomeView: View {
@@ -1363,14 +1508,16 @@ private struct CheckInView: View {
     }
 
     private func habitsCard(for targetDate: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let eveningDate = SleepTrackerAppCore.habitCheckInDate(forSleepDate: targetDate)
+
+        return VStack(alignment: .leading, spacing: 12) {
             Text("Habits")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(.white)
-            Text("Log what you did before bed for \(targetDate). After an import, this date automatically switches to the night from the screenshots you just selected.")
+            Text("Log what you did before bed on \(eveningDate). The answers will still be attached to the sleep that ended on \(targetDate).")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.68))
-            Label("Open Habit Check-In for \(targetDate)", systemImage: "list.bullet.clipboard")
+            Label("Open Habit Check-In for \(eveningDate)", systemImage: "list.bullet.clipboard")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -1501,11 +1648,18 @@ private struct HabitCheckInView: View {
     @State private var notesDraft = ""
 
     var body: some View {
+        let eveningDate = SleepTrackerAppCore.habitCheckInDate(forSleepDate: date)
+
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text(date)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.sunAccent)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(eveningDate)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.sunAccent)
+                    Text("Before-bed habits for the sleep that ended on \(date)")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.58))
+                }
 
                 ForEach(appModel.habits.filter { $0.archivedAt == nil }) { habit in
                     HabitRow(appModel: appModel, date: date, habit: habit)

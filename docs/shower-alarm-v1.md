@@ -93,7 +93,29 @@ Step 5 and step 6 are the parts that still need on-device proof after the model 
 
 ## Exact Audio Data Required
 
-The first training pack should be:
+The first training pack started as a broad six-class capture plan, but the app now treats a smaller baseline pack as sufficient for the first personalized classifier.
+
+### Baseline pack for v1
+
+| Label | Clips | Seconds per clip | Goal |
+|-------|-------|------------------|------|
+| `shower_on` | 12 | 8 | Positive class: the real shower you want the alarm to react to |
+| `bathroom_ambient` | 8 | 8 | Quiet bathroom room tone without water |
+| `speech_movement` | 8 | 8 | You moving, handling the phone, walking, or speaking |
+
+Total baseline: 28 clips, 224 seconds.
+
+### Optional hard negatives
+
+| Label | Clips | Seconds per clip | Goal |
+|-------|-------|------------------|------|
+| `sink_running` | 8 | 8 | Faucet/sink noise so it is not confused with shower |
+| `bathroom_fan` | 8 | 8 | Ventilation noise if present |
+| `silence` | 6 | 8 | Quiet baseline if you want extra separation from room noise |
+
+### Original full pack
+
+The broader pack is still useful for future retrains:
 
 | Label | Clips | Seconds per clip | Goal |
 |-------|-------|------------------|------|

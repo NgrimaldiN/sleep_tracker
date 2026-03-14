@@ -18,6 +18,11 @@
 		B1000009 /* AlarmFeatureModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000024 /* AlarmFeatureModel.swift */; };
 		B100000A /* AlarmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000025 /* AlarmView.swift */; };
 		B100000B /* Sources/GarminImportCore/AlarmFeatureCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000026 /* Sources/GarminImportCore/AlarmFeatureCore.swift */; };
+		B100000C /* ShowerDetectorProfile.json in Resources */ = {isa = PBXBuildFile; fileRef = B1000027 /* ShowerDetectorProfile.json */; };
+		B100000F /* LiveShowerDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000028 /* LiveShowerDetector.swift */; };
+		B100001A /* WakeAudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000029 /* WakeAudioController.swift */; };
+		B100001B /* WakeMissionTone.wav in Resources */ = {isa = PBXBuildFile; fileRef = B100002A /* WakeMissionTone.wav */; };
+		B100001C /* BackgroundKeepAlive.wav in Resources */ = {isa = PBXBuildFile; fileRef = B100002B /* BackgroundKeepAlive.wav */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +39,11 @@
 		B1000024 /* AlarmFeatureModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmFeatureModel.swift; sourceTree = "<group>"; };
 		B1000025 /* AlarmView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmView.swift; sourceTree = "<group>"; };
 		B1000026 /* Sources/GarminImportCore/AlarmFeatureCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/GarminImportCore/AlarmFeatureCore.swift; sourceTree = SOURCE_ROOT; };
+		B1000027 /* ShowerDetectorProfile.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ShowerDetectorProfile.json; sourceTree = "<group>"; };
+		B1000028 /* LiveShowerDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveShowerDetector.swift; sourceTree = "<group>"; };
+		B1000029 /* WakeAudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeAudioController.swift; sourceTree = "<group>"; };
+		B100002A /* WakeMissionTone.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = WakeMissionTone.wav; sourceTree = "<group>"; };
+		B100002B /* BackgroundKeepAlive.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = BackgroundKeepAlive.wav; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,10 +72,15 @@
 				B1000011 /* SleepTrackerIOSApp.swift */,
 				B1000014 /* AppModel.swift */,
 				B1000024 /* AlarmFeatureModel.swift */,
+				B1000028 /* LiveShowerDetector.swift */,
+				B1000029 /* WakeAudioController.swift */,
 				B1000012 /* ContentView.swift */,
 				B1000025 /* AlarmView.swift */,
 				B1000013 /* ImportViewModel.swift */,
 				B1000017 /* SupabaseRepository.swift */,
+				B1000027 /* ShowerDetectorProfile.json */,
+				B100002A /* WakeMissionTone.wav */,
+				B100002B /* BackgroundKeepAlive.wav */,
 				B1000019 /* Assets.xcassets */,
 				B1000015 /* Info.plist */,
 			);
@@ -148,6 +163,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B100001C /* BackgroundKeepAlive.wav in Resources */,
+				B100000C /* ShowerDetectorProfile.json in Resources */,
+				B100001B /* WakeMissionTone.wav in Resources */,
 				B1000008 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -161,6 +179,8 @@
 			files = (
 				B1000005 /* AppModel.swift in Sources */,
 				B1000009 /* AlarmFeatureModel.swift in Sources */,
+				B100000F /* LiveShowerDetector.swift in Sources */,
+				B100001A /* WakeAudioController.swift in Sources */,
 				B100000A /* AlarmView.swift in Sources */,
 				B1000001 /* SleepTrackerIOSApp.swift in Sources */,
 				B1000002 /* ContentView.swift in Sources */,

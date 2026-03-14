@@ -376,6 +376,138 @@ struct GarminSleepParserTests {
         #expect(record.averageSkinTemperatureChangeCelsius == nil)
     }
 
+    @Test
+    func parseNightUsesImportDateWhenGarminShowsTodayInsteadOfExplicitDate() throws {
+        let parser = GarminSleepParser(
+            ocrRecognizer: StubOCRRecognizer(
+                linesByFileName: [
+                    "2026-03-14_summary.jpeg": [
+                        line("Today", x: 0.30, y: 0.88),
+                        line("82", x: 0.52, y: 0.76),
+                        line("Good", x: 0.12, y: 0.64),
+                        line("Quality", x: 0.12, y: 0.61),
+                        line("7h 42m", x: 0.63, y: 0.64),
+                        line("Duration", x: 0.63, y: 0.61),
+                        line("Restorative", x: 0.12, y: 0.50),
+                    ],
+                    "2026-03-14_timeline.jpeg": [
+                        line("Today", x: 0.30, y: 0.88),
+                        line("00:48", x: 0.08, y: 0.16),
+                        line("08:30", x: 0.82, y: 0.16),
+                    ],
+                    "2026-03-14_metrics.jpeg": [
+                        line("58m", x: 0.08, y: 0.73),
+                        line("Deep", x: 0.08, y: 0.70),
+                        line("4h 53m", x: 0.58, y: 0.73),
+                        line("Light", x: 0.58, y: 0.70),
+                        line("1h 51m", x: 0.08, y: 0.63),
+                        line("REM", x: 0.08, y: 0.60),
+                        line("9m", x: 0.58, y: 0.63),
+                        line("Awake", x: 0.58, y: 0.60),
+                        line("Minimal", x: 0.08, y: 0.46),
+                        line("Breathing Variations", x: 0.08, y: 0.43),
+                        line("31", x: 0.58, y: 0.46),
+                        line("Restless Moments", x: 0.58, y: 0.43),
+                        line("50 bpm", x: 0.08, y: 0.36),
+                        line("Resting Heart Rate", x: 0.08, y: 0.33),
+                        line("+45", x: 0.58, y: 0.36),
+                        line("Body Battery Change", x: 0.58, y: 0.33),
+                        line("98 %", x: 0.08, y: 0.26),
+                        line("Avg SpO2", x: 0.08, y: 0.23),
+                        line("91 %", x: 0.58, y: 0.26),
+                        line("Lowest SpO2", x: 0.58, y: 0.23),
+                        line("15 brpm", x: 0.08, y: 0.16),
+                        line("Avg Respiration", x: 0.08, y: 0.13),
+                        line("11 brpm", x: 0.58, y: 0.16),
+                        line("Lowest Respiration", x: 0.58, y: 0.13),
+                        line("79 ms", x: 0.08, y: 0.06),
+                        line("Avg Overnight HRV", x: 0.08, y: 0.03),
+                        line("Balanced", x: 0.58, y: 0.06),
+                        line("7d Avg HRV", x: 0.58, y: 0.03),
+                        line("--", x: 0.08, y: -0.04),
+                        line("Avg Skin Temp Change", x: 0.08, y: -0.07),
+                    ],
+                ]
+            )
+        )
+
+        let fixtureDirectory = FixturePaths.garminPhotosDirectory
+        let record = try parser.parseNight(
+            summaryURL: fixtureDirectory.appending(path: "2026-03-14_summary.jpeg"),
+            timelineURL: fixtureDirectory.appending(path: "2026-03-14_timeline.jpeg"),
+            metricsURL: fixtureDirectory.appending(path: "2026-03-14_metrics.jpeg"),
+            importedAt: ISO8601DateFormatter().date(from: "2026-03-14T08:30:00Z")!
+        )
+
+        #expect(record.sleepDate == "2026-03-14")
+    }
+
+    @Test
+    func parseNightAcceptsUppercaseHourMarkerAndZeroMinuteRemDuration() throws {
+        let parser = GarminSleepParser(
+            ocrRecognizer: StubOCRRecognizer(
+                linesByFileName: [
+                    "2026-03-15_summary.jpeg": [
+                        line("Saturday, March 14", x: 0.30, y: 0.88),
+                        line("84", x: 0.52, y: 0.76),
+                        line("Good", x: 0.12, y: 0.64),
+                        line("Quality", x: 0.12, y: 0.61),
+                        line("8h 4m", x: 0.63, y: 0.64),
+                        line("Duration", x: 0.63, y: 0.61),
+                        line("Restorative", x: 0.12, y: 0.50),
+                    ],
+                    "2026-03-15_timeline.jpeg": [
+                        line("Saturday, March 14", x: 0.30, y: 0.88),
+                        line("00:23", x: 0.08, y: 0.16),
+                        line("08:27", x: 0.82, y: 0.16),
+                    ],
+                    "2026-03-15_metrics.jpeg": [
+                        line("49m", x: 0.08, y: 0.73),
+                        line("Deep", x: 0.08, y: 0.70),
+                        line("5h 6m", x: 0.58, y: 0.73),
+                        line("Light", x: 0.58, y: 0.70),
+                        line("2H 0m", x: 0.08, y: 0.63),
+                        line("REM", x: 0.08, y: 0.60),
+                        line("9m", x: 0.58, y: 0.63),
+                        line("Awake", x: 0.58, y: 0.60),
+                        line("Minimal", x: 0.08, y: 0.46),
+                        line("Breathing Variations", x: 0.08, y: 0.43),
+                        line("28", x: 0.58, y: 0.46),
+                        line("Restless Moments", x: 0.58, y: 0.43),
+                        line("48 bpm", x: 0.08, y: 0.36),
+                        line("Resting Heart Rate", x: 0.08, y: 0.33),
+                        line("+51", x: 0.58, y: 0.36),
+                        line("Body Battery Change", x: 0.58, y: 0.33),
+                        line("99 %", x: 0.08, y: 0.26),
+                        line("Avg SpO2", x: 0.08, y: 0.23),
+                        line("92 %", x: 0.58, y: 0.26),
+                        line("Lowest SpO2", x: 0.58, y: 0.23),
+                        line("15 brpm", x: 0.08, y: 0.16),
+                        line("Avg Respiration", x: 0.08, y: 0.13),
+                        line("11 brpm", x: 0.58, y: 0.16),
+                        line("Lowest Respiration", x: 0.58, y: 0.13),
+                        line("81 ms", x: 0.08, y: 0.06),
+                        line("Avg Overnight HRV", x: 0.08, y: 0.03),
+                        line("Balanced", x: 0.58, y: 0.06),
+                        line("7d Avg HRV", x: 0.58, y: 0.03),
+                        line("--", x: 0.08, y: -0.04),
+                        line("Avg Skin Temp Change", x: 0.08, y: -0.07),
+                    ],
+                ]
+            )
+        )
+
+        let fixtureDirectory = FixturePaths.garminPhotosDirectory
+        let record = try parser.parseNight(
+            summaryURL: fixtureDirectory.appending(path: "2026-03-15_summary.jpeg"),
+            timelineURL: fixtureDirectory.appending(path: "2026-03-15_timeline.jpeg"),
+            metricsURL: fixtureDirectory.appending(path: "2026-03-15_metrics.jpeg"),
+            importedAt: ISO8601DateFormatter().date(from: "2026-03-15T08:30:00Z")!
+        )
+
+        #expect(record.remSleepMinutes == 120)
+    }
+
 #if os(iOS)
     @Test
     func visionOCRRecognizesKeySummaryTextFromRealGarminScreenshot() throws {

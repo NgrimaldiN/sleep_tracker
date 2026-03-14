@@ -281,7 +281,7 @@ public struct GarminSleepParser: Sendable {
 
 private extension GarminSleepParser {
     func parseSleepDate(from lines: [RecognizedLine], importedAt: Date) throws -> String {
-        let calendar = Calendar(identifier: .gregorian)
+        let calendar = Calendar.autoupdatingCurrent
         let importYear = calendar.component(.year, from: importedAt)
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
@@ -292,6 +292,14 @@ private extension GarminSleepParser {
         outputFormatter.locale = Locale(identifier: "en_US_POSIX")
         outputFormatter.timeZone = TimeZone(secondsFromGMT: 0)
         outputFormatter.dateFormat = "yyyy-MM-dd"
+
+        if lines.contains(where: { normalizedKey($0.text) == "today" }) {
+            let relativeDateFormatter = DateFormatter()
+            relativeDateFormatter.locale = Locale(identifier: "en_US_POSIX")
+            relativeDateFormatter.timeZone = calendar.timeZone
+            relativeDateFormatter.dateFormat = "yyyy-MM-dd"
+            return relativeDateFormatter.string(from: importedAt)
+        }
 
         let dateLine = lines
             .map(\.text)
@@ -678,18 +686,22 @@ private extension GarminSleepParser {
     }
 
     func parseDurationMinutes(from text: String) -> Int? {
+        let normalized = text
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .replacingOccurrences(of: "o", with: "0")
         let pattern = #"(?:(\d+)\s*h\s*)?(\d+)\s*m"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else {
             return nil
         }
 
-        let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        guard let match = regex.firstMatch(in: text, range: range) else {
+        let range = NSRange(normalized.startIndex..<normalized.endIndex, in: normalized)
+        guard let match = regex.firstMatch(in: normalized, range: range) else {
             return nil
         }
 
-        let hours = match.range(at: 1).location == NSNotFound ? 0 : Int((text as NSString).substring(with: match.range(at: 1))) ?? 0
-        let minutes = Int((text as NSString).substring(with: match.range(at: 2))) ?? 0
+        let normalizedNSString = normalized as NSString
+        let hours = match.range(at: 1).location == NSNotFound ? 0 : Int(normalizedNSString.substring(with: match.range(at: 1))) ?? 0
+        let minutes = Int(normalizedNSString.substring(with: match.range(at: 2))) ?? 0
         return (hours * 60) + minutes
     }
 

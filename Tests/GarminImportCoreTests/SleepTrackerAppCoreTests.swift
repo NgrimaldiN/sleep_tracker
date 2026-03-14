@@ -131,6 +131,13 @@ struct SleepTrackerAppCoreTests {
     }
 
     @Test
+    func habitCheckInDateUsesPreviousDayOfImportedSleepRecord() {
+        let habitDate = SleepTrackerAppCore.habitCheckInDate(forSleepDate: "2026-03-14")
+
+        #expect(habitDate == "2026-03-13")
+    }
+
+    @Test
     func mergedLogsPreferPendingLocalChangesOverRemoteSnapshot() {
         let remoteLogs = [
             "2026-03-12": DailyLogData(notes: "remote", sleepScore: 81),
@@ -367,5 +374,31 @@ struct SleepTrackerAppCoreTests {
         let avoidRecommendation = snapshot.recommendations.first { $0.kind == .avoid }
 
         #expect(avoidRecommendation?.title == "Avoid going to bed after 00:30 tonight")
+    }
+
+    @Test
+    func dashboardSnapshotUsesMealTimingBandsForTimeHabits() {
+        let habits = [
+            HabitDefinition(id: "mealtime", label: "Mealtime", type: .time),
+        ]
+        let logs = [
+            "2026-03-01": DailyLogData(habits: ["mealtime"], habitValues: ["mealtime": .string("19:50")], sleepScore: 86, bedtime: "23:20", importedAt: "2026-03-02T08:00:00Z"),
+            "2026-03-02": DailyLogData(habits: ["mealtime"], habitValues: ["mealtime": .string("20:10")], sleepScore: 88, bedtime: "23:35", importedAt: "2026-03-03T08:00:00Z"),
+            "2026-03-03": DailyLogData(habits: ["mealtime"], habitValues: ["mealtime": .string("19:40")], sleepScore: 87, bedtime: "23:25", importedAt: "2026-03-04T08:00:00Z"),
+            "2026-03-04": DailyLogData(habits: ["mealtime"], habitValues: ["mealtime": .string("22:50")], sleepScore: 65, bedtime: "23:45", importedAt: "2026-03-05T08:00:00Z"),
+            "2026-03-05": DailyLogData(habits: ["mealtime"], habitValues: ["mealtime": .string("22:40")], sleepScore: 64, bedtime: "23:50", importedAt: "2026-03-06T08:00:00Z"),
+            "2026-03-06": DailyLogData(habits: ["mealtime"], habitValues: ["mealtime": .string("20:05")], sleepScore: 89, bedtime: "23:30", importedAt: "2026-03-07T08:00:00Z"),
+        ]
+
+        let snapshot = SleepTrackerAppCore.dashboardSnapshot(
+            logs: logs,
+            habits: habits,
+            metric: .sleepScore
+        )
+
+        let reinforceRecommendation = snapshot.recommendations.first { $0.kind == .reinforce }
+
+        #expect(snapshot.overallImpact.topPositive?.habitID == "mealtime")
+        #expect(reinforceRecommendation?.title == "Keep your last meal about 2h to 4h before bed")
     }
 }

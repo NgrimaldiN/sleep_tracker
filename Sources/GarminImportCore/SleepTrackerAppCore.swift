@@ -606,7 +606,6 @@ public enum SleepTrackerAppCore {
 
         let values = sortedLogs.compactMap { metricValue(for: $0.entry, metric: metric) }
         let averageValue = values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count)
-        let lastEntry = sortedLogs.last?.entry
         let recentScore = sortedLogs.suffix(7)
             .compactMap { $0.entry.sleepScore }
         let recentAverageScore = recentScore.isEmpty ? nil : Double(recentScore.reduce(0, +)) / Double(recentScore.count)
@@ -620,6 +619,7 @@ public enum SleepTrackerAppCore {
         }
 
         let analysisBundle = analysisBundle(from: sortedLogs)
+        let lastEntry = analysisBundle.logs.last?.entry ?? sortedLogs.last?.entry
         let overallImpact = impactSummary(
             logs: sortedLogs,
             habits: habits,
@@ -777,6 +777,16 @@ public enum SleepTrackerAppCore {
         }
 
         return "\(parts[1])/\(parts[2])"
+    }
+
+    public static func habitCheckInDate(forSleepDate sleepDate: String) -> String {
+        guard let parsedDate = isoDayDate(from: sleepDate),
+              let previousDate = isoCalendar.date(byAdding: .day, value: -1, to: parsedDate)
+        else {
+            return sleepDate
+        }
+
+        return isoDayString(from: previousDate)
     }
 
     public static func mergedLogs(
@@ -965,6 +975,10 @@ public enum SleepTrackerAppCore {
         logs: [(date: String, entry: DailyLogData)],
         metric: DashboardMetric
     ) -> [HabitImpact] {
+        if habit.type == .time {
+            return timeImpacts(for: habit, logs: logs, metric: metric)
+        }
+
         if habit.type == .select, let options = habit.options, !options.isEmpty {
             return options.compactMap { option in
                 selectOptionImpact(
@@ -981,6 +995,36 @@ public enum SleepTrackerAppCore {
         }
 
         return [impact]
+    }
+
+    private static func timeImpacts(
+        for habit: HabitDefinition,
+        logs: [(date: String, entry: DailyLogData)],
+        metric: DashboardMetric
+    ) -> [HabitImpact] {
+        let options: [String]
+        let classifier: (DailyLogData) -> String?
+
+        if isMealTimeHabit(habit) {
+            options = mealTimingOptions
+            classifier = { mealTimingOption(for: $0, habitID: habit.id) }
+        } else {
+            guard let windowOptions = absoluteTimeWindowOptions(for: habit, logs: logs) else {
+                return []
+            }
+            options = windowOptions
+            classifier = { absoluteTimeWindowOption(for: $0.habitValues[habit.id]?.stringValue, options: windowOptions) }
+        }
+
+        return options.compactMap { option in
+            timeOptionImpact(
+                for: habit,
+                option: option,
+                logs: logs,
+                metric: metric,
+                classifier: classifier
+            )
+        }
     }
 
     private static func booleanStyleImpact(
@@ -1078,6 +1122,59 @@ public enum SleepTrackerAppCore {
         )
     }
 
+    private static func timeOptionImpact(
+        for habit: HabitDefinition,
+        option: String,
+        logs: [(date: String, entry: DailyLogData)],
+        metric: DashboardMetric,
+        classifier: (DailyLogData) -> String?
+    ) -> HabitImpact? {
+        let withOption = logs.compactMap { item -> Double? in
+            guard classifier(item.entry) == option,
+                  let value = metricValue(for: item.entry, metric: metric)
+            else {
+                return nil
+            }
+
+            return value
+        }
+        let withoutOption = logs.compactMap { item -> Double? in
+            guard let classified = classifier(item.entry),
+                  classified != option,
+                  let value = metricValue(for: item.entry, metric: metric)
+            else {
+                return nil
+            }
+
+            return value
+        }
+
+        guard !withOption.isEmpty || !withoutOption.isEmpty else {
+            return nil
+        }
+
+        let withAverage = withOption.isEmpty ? 0 : withOption.reduce(0, +) / Double(withOption.count)
+        let withoutAverage = withoutOption.isEmpty ? 0 : withoutOption.reduce(0, +) / Double(withoutOption.count)
+        let rawImpact = (withOption.isEmpty || withoutOption.isEmpty) ? 0 : (withAverage - withoutAverage)
+        let normalizedImpact = normalizeImpact(rawImpact, metric: metric)
+        let normalizedOptionID = option
+            .lowercased()
+            .replacingOccurrences(of: #"[^a-z0-9]+"#, with: "_", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+        let isSignificant = withOption.count >= 3 && !withoutOption.isEmpty
+
+        return HabitImpact(
+            id: "\(habit.id)_\(normalizedOptionID)",
+            habitID: habit.id,
+            label: "\(habit.label): \(option)",
+            impact: normalizedImpact,
+            sampleCount: withOption.count,
+            comparisonCount: withoutOption.count,
+            isSignificant: isSignificant,
+            optionValue: option
+        )
+    }
+
     private static func dashboardRecommendations(
         overallImpact: ImpactSummary,
         recentImpact: ImpactSummary,
@@ -1094,55 +1191,55 @@ public enum SleepTrackerAppCore {
             recentImpact.leaderboard.filter {
                 $0.isSignificant &&
                 $0.impact > 0 &&
-                isRecommendableImpact($0, habitLookup: habitLookup)
+                isPositiveRecommendationImpact($0, habitLookup: habitLookup)
             } +
             overallImpact.leaderboard.filter {
                 $0.isSignificant &&
                 $0.impact > 0 &&
-                isRecommendableImpact($0, habitLookup: habitLookup)
+                isPositiveRecommendationImpact($0, habitLookup: habitLookup)
             }
         )
         let negativeHabitCandidates = uniqueImpacts(
             recentImpact.leaderboard.filter {
                 $0.isSignificant &&
                 $0.impact < 0 &&
-                isRecommendableImpact($0, habitLookup: habitLookup)
+                isNegativeRecommendationImpact($0, habitLookup: habitLookup)
             } +
             overallImpact.leaderboard.filter {
                 $0.isSignificant &&
                 $0.impact < 0 &&
-                isRecommendableImpact($0, habitLookup: habitLookup)
+                isNegativeRecommendationImpact($0, habitLookup: habitLookup)
             }
         )
         let positiveTimingCandidates = prioritizeTimingImpacts(uniqueImpacts(
             recentTimingImpact.leaderboard.filter {
                 $0.isSignificant &&
                 $0.impact > 0 &&
-                isRecommendableImpact($0, habitLookup: habitLookup)
+                isPositiveRecommendationImpact($0, habitLookup: habitLookup)
             } +
             overallTimingImpact.leaderboard.filter {
                 $0.isSignificant &&
                 $0.impact > 0 &&
-                isRecommendableImpact($0, habitLookup: habitLookup)
+                isPositiveRecommendationImpact($0, habitLookup: habitLookup)
             }
         ))
         let negativeTimingCandidates = prioritizeTimingImpacts(uniqueImpacts(
             recentTimingImpact.leaderboard.filter {
                 $0.isSignificant &&
                 $0.impact < 0 &&
-                isRecommendableImpact($0, habitLookup: habitLookup)
+                isNegativeRecommendationImpact($0, habitLookup: habitLookup)
             } +
             overallTimingImpact.leaderboard.filter {
                 $0.isSignificant &&
                 $0.impact < 0 &&
-                isRecommendableImpact($0, habitLookup: habitLookup)
+                isNegativeRecommendationImpact($0, habitLookup: habitLookup)
             }
         ))
-        let positiveCandidates = positiveHabitCandidates + positiveTimingCandidates
-        let negativeCandidates = negativeHabitCandidates + negativeTimingCandidates
+        let positiveCandidates = prioritizeRecommendationCandidates(positiveHabitCandidates + positiveTimingCandidates)
+        let negativeCandidates = prioritizeRecommendationCandidates(negativeHabitCandidates + negativeTimingCandidates)
 
         if let latestEntry,
-           let continueImpact = positiveCandidates.first(where: { isImpactActive($0, in: latestEntry) }) {
+           let continueImpact = positiveCandidates.first(where: { isImpactActive($0, in: latestEntry, habitLookup: habitLookup) }) {
             recommendations.append(
                 DashboardRecommendation(
                     id: "continue-\(continueImpact.id)",
@@ -1156,7 +1253,7 @@ public enum SleepTrackerAppCore {
         }
 
         if let latestEntry,
-           let stopImpact = negativeCandidates.first(where: { isImpactActive($0, in: latestEntry) }) {
+           let stopImpact = negativeCandidates.first(where: { isImpactActive($0, in: latestEntry, habitLookup: habitLookup) }) {
             recommendations.append(
                 DashboardRecommendation(
                     id: "stop-\(stopImpact.id)",
@@ -1172,7 +1269,7 @@ public enum SleepTrackerAppCore {
         let activeRecommendationIDs = Set(recommendations.map(\.id))
         if let latestEntry,
            let tryImpact = positiveCandidates.first(where: {
-               !isImpactActive($0, in: latestEntry) &&
+               !isImpactActive($0, in: latestEntry, habitLookup: habitLookup) &&
                !activeRecommendationIDs.contains("continue-\($0.id)")
            }) {
             recommendations.append(
@@ -1621,7 +1718,17 @@ public enum SleepTrackerAppCore {
         )
     }
 
-    private static func isImpactActive(_ impact: HabitImpact, in entry: DailyLogData) -> Bool {
+    private static func isImpactActive(
+        _ impact: HabitImpact,
+        in entry: DailyLogData,
+        habitLookup: [String: HabitDefinition]
+    ) -> Bool {
+        if let habit = habitLookup[impact.habitID],
+           habit.type == .time,
+           let optionValue = impact.optionValue {
+            return timeOptionMatches(entry: entry, habit: habit, option: optionValue)
+        }
+
         if let optionValue = impact.optionValue {
             return entry.habitValues[impact.habitID]?.stringValue == optionValue
         }
@@ -1647,8 +1754,25 @@ public enum SleepTrackerAppCore {
         return ordered
     }
 
+    private static func prioritizeRecommendationCandidates(_ impacts: [HabitImpact]) -> [HabitImpact] {
+        impacts.sorted { lhs, rhs in
+            let leftMagnitude = abs(lhs.impact)
+            let rightMagnitude = abs(rhs.impact)
+
+            if abs(leftMagnitude - rightMagnitude) > 0.0001 {
+                return leftMagnitude > rightMagnitude
+            }
+
+            return recommendationPriority(for: lhs.habitID) < recommendationPriority(for: rhs.habitID)
+        }
+    }
+
     private static func isDerivedHabitID(_ habitID: String) -> Bool {
         habitID.hasPrefix("derived_")
+    }
+
+    private static func recommendationPriority(for habitID: String) -> Int {
+        isDerivedHabitID(habitID) ? timingPriority(for: habitID) : 10
     }
 
     private static func prioritizeTimingImpacts(_ impacts: [HabitImpact]) -> [HabitImpact] {
@@ -1692,6 +1816,34 @@ public enum SleepTrackerAppCore {
         return isHabitRecommendable(habit)
     }
 
+    private static func isPositiveRecommendationImpact(
+        _ impact: HabitImpact,
+        habitLookup: [String: HabitDefinition]
+    ) -> Bool {
+        guard isRecommendableImpact(impact, habitLookup: habitLookup) else {
+            return false
+        }
+
+        guard let habit = habitLookup[impact.habitID] else {
+            return true
+        }
+
+        if habit.type == .time,
+           isMealTimeHabit(habit),
+           impact.optionValue == mealTimingOptions.first {
+            return false
+        }
+
+        return true
+    }
+
+    private static func isNegativeRecommendationImpact(
+        _ impact: HabitImpact,
+        habitLookup: [String: HabitDefinition]
+    ) -> Bool {
+        isRecommendableImpact(impact, habitLookup: habitLookup)
+    }
+
     private static func isHabitRecommendable(_ habit: HabitDefinition) -> Bool {
         let haystack = "\(habit.id) \(habit.label)".lowercased()
         let blockedKeywords = [
@@ -1729,6 +1881,10 @@ public enum SleepTrackerAppCore {
             return derivedTitle
         }
 
+        if let timeTitle = timeRecommendationTitle(label: impact.label, kind: kind) {
+            return timeTitle
+        }
+
         if let negatedObject = negatedObject(from: impact.label) {
             switch kind {
             case .reinforce:
@@ -1748,6 +1904,59 @@ public enum SleepTrackerAppCore {
         case .test:
             return phraseTitle(verb: "Try", object: impact.label, appendTonight: true)
         }
+    }
+
+    private static func timeRecommendationTitle(
+        label: String,
+        kind: RecommendationKind
+    ) -> String? {
+        let parts = label.components(separatedBy: ": ")
+        guard parts.count == 2 else {
+            return nil
+        }
+
+        let category = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        let option = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if isMealTimeLabel(category) {
+            switch option {
+            case "Within 2h of bed":
+                switch kind {
+                case .avoid:
+                    return "Avoid eating within 2 hours of bed tonight"
+                case .reinforce:
+                    return "Keep your last meal at least 2 hours before bed"
+                case .test:
+                    return "Try leaving at least 2 hours between dinner and bed tonight"
+                }
+            case "2h to 4h before bed":
+                switch kind {
+                case .reinforce:
+                    return "Keep your last meal about 2h to 4h before bed"
+                case .avoid:
+                    return "Avoid moving your last meal out of the 2h to 4h window tonight"
+                case .test:
+                    return "Try having your last meal about 2h to 4h before bed"
+                }
+            case "More than 4h before bed":
+                switch kind {
+                case .reinforce:
+                    return "Keep your last meal more than 4h before bed"
+                case .avoid:
+                    return "Avoid leaving your last meal more than 4h before bed tonight"
+                case .test:
+                    return "Try having your last meal more than 4h before bed"
+                }
+            default:
+                break
+            }
+        }
+
+        if let genericTimeTitle = genericTimeRecommendationTitle(category: category, option: option, kind: kind) {
+            return genericTimeTitle
+        }
+
+        return nil
     }
 
     private static func derivedRecommendationTitle(
@@ -1861,6 +2070,52 @@ public enum SleepTrackerAppCore {
         }
     }
 
+    private static func genericTimeRecommendationTitle(
+        category: String,
+        option: String,
+        kind: RecommendationKind
+    ) -> String? {
+        let subject = category.trimmingCharacters(in: .whitespacesAndNewlines)
+        let loweredSubject = subject.lowercased()
+
+        if option.hasPrefix("Before ") {
+            let threshold = String(option.dropFirst("Before ".count))
+            switch kind {
+            case .reinforce:
+                return "Keep \(loweredSubject) before \(threshold)"
+            case .avoid:
+                return "Avoid pushing \(loweredSubject) past \(threshold) today"
+            case .test:
+                return "Try \(loweredSubject) before \(threshold) today"
+            }
+        }
+
+        if option.hasPrefix("After ") {
+            let threshold = String(option.dropFirst("After ".count))
+            switch kind {
+            case .reinforce:
+                return "Keep \(loweredSubject) after \(threshold)"
+            case .avoid:
+                return "Avoid \(loweredSubject) after \(threshold) today"
+            case .test:
+                return "Try \(loweredSubject) after \(threshold) today"
+            }
+        }
+
+        if option.contains(" to ") {
+            switch kind {
+            case .reinforce:
+                return "Keep \(loweredSubject) around \(option)"
+            case .avoid:
+                return "Avoid shifting \(loweredSubject) away from \(option) today"
+            case .test:
+                return "Try \(loweredSubject) around \(option) today"
+            }
+        }
+
+        return nil
+    }
+
     private static func negatedObject(from label: String) -> String? {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowercased = trimmed.lowercased()
@@ -1944,6 +2199,175 @@ public enum SleepTrackerAppCore {
         }
 
         return (hours * 60) + minutes
+    }
+
+    private static let mealTimingOptions = [
+        "Within 2h of bed",
+        "2h to 4h before bed",
+        "More than 4h before bed",
+    ]
+
+    private static let isoCalendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? TimeZone(abbreviation: "UTC")!
+        return calendar
+    }()
+
+    private static func isoDayDate(from isoDate: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = isoCalendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: isoDate)
+    }
+
+    private static func isoDayString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = isoCalendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private static func isMealTimeHabit(_ habit: HabitDefinition) -> Bool {
+        isMealTimeLabel("\(habit.id) \(habit.label)")
+    }
+
+    private static func isMealTimeLabel(_ label: String) -> Bool {
+        let lowered = label.lowercased()
+        let keywords = ["meal", "dinner", "eat", "eating", "snack", "food", "supper"]
+        return keywords.contains { lowered.contains($0) }
+    }
+
+    private static func mealTimingOption(
+        for entry: DailyLogData,
+        habitID: String
+    ) -> String? {
+        guard let rawMealTime = clockMinutes(for: entry.habitValues[habitID]?.stringValue),
+              let bedtime = bedtimeMinutes(for: entry.bedtime)
+        else {
+            return nil
+        }
+
+        var mealTime = rawMealTime
+        if bedtime >= 1440, mealTime < 300 {
+            mealTime += 1440
+        }
+
+        guard mealTime <= bedtime else {
+            return nil
+        }
+
+        let gapToBed = bedtime - mealTime
+        switch gapToBed {
+        case ..<120:
+            return mealTimingOptions[0]
+        case ..<240:
+            return mealTimingOptions[1]
+        default:
+            return mealTimingOptions[2]
+        }
+    }
+
+    private static func absoluteTimeWindowOptions(
+        for habit: HabitDefinition,
+        logs: [(date: String, entry: DailyLogData)]
+    ) -> [String]? {
+        let values = logs
+            .compactMap { clockMinutes(for: $0.entry.habitValues[habit.id]?.stringValue) }
+            .sorted()
+
+        guard values.count >= 4 else {
+            return nil
+        }
+
+        let median = values[values.count / 2]
+        let lowerBound = roundedClockMinutes(median - 30)
+        var upperBound = roundedClockMinutes(median + 30)
+        if abs(upperBound - lowerBound) < 1 {
+            upperBound = roundedClockMinutes(median + 60)
+        }
+
+        let lowerLabel = formattedClockMinutes(lowerBound)
+        let upperLabel = formattedClockMinutes(upperBound)
+        return [
+            "Before \(lowerLabel)",
+            "\(lowerLabel) to \(upperLabel)",
+            "After \(upperLabel)",
+        ]
+    }
+
+    private static func absoluteTimeWindowOption(
+        for storedTime: String?,
+        options: [String]
+    ) -> String? {
+        guard let minutes = clockMinutes(for: storedTime) else {
+            return nil
+        }
+
+        return options.first { absoluteTimeWindowOptionMatches(minutes: minutes, option: $0) }
+    }
+
+    private static func timeOptionMatches(
+        entry: DailyLogData,
+        habit: HabitDefinition,
+        option: String
+    ) -> Bool {
+        if isMealTimeHabit(habit) {
+            return mealTimingOption(for: entry, habitID: habit.id) == option
+        }
+
+        guard let storedTime = entry.habitValues[habit.id]?.stringValue,
+              let minutes = clockMinutes(for: storedTime)
+        else {
+            return false
+        }
+
+        return absoluteTimeWindowOptionMatches(minutes: minutes, option: option)
+    }
+
+    private static func absoluteTimeWindowOptionMatches(
+        minutes: Double,
+        option: String
+    ) -> Bool {
+        if option.hasPrefix("Before ") {
+            let threshold = String(option.dropFirst("Before ".count))
+            guard let thresholdMinutes = clockMinutes(for: threshold) else {
+                return false
+            }
+            return minutes < thresholdMinutes
+        }
+
+        if option.hasPrefix("After ") {
+            let threshold = String(option.dropFirst("After ".count))
+            guard let thresholdMinutes = clockMinutes(for: threshold) else {
+                return false
+            }
+            return minutes > thresholdMinutes
+        }
+
+        let parts = option.components(separatedBy: " to ")
+        guard parts.count == 2,
+              let startMinutes = clockMinutes(for: parts[0]),
+              let endMinutes = clockMinutes(for: parts[1])
+        else {
+            return false
+        }
+
+        return minutes >= startMinutes && minutes <= endMinutes
+    }
+
+    private static func roundedClockMinutes(_ minutes: Double) -> Double {
+        let clamped = min(max(minutes, 0), 1439)
+        let rounded = (clamped / 15).rounded() * 15
+        return min(max(rounded, 0), 1439)
+    }
+
+    private static func formattedClockMinutes(_ minutes: Double) -> String {
+        let normalized = Int(minutes.rounded())
+        let hours = normalized / 60
+        let remainder = normalized % 60
+        return String(format: "%02d:%02d", hours, remainder)
     }
 
     private enum RecoveryDirection {
@@ -2065,6 +2489,7 @@ public enum SleepTrackerAppCore {
         HabitDefinition(id: "alcohol", label: "Alcohol"),
         HabitDefinition(id: "late_sport", label: "Late sport tonight"),
         HabitDefinition(id: "day_sport", label: "Did sport during the day"),
+        HabitDefinition(id: "meal_time", label: "Mealtime", type: .time),
         HabitDefinition(id: "late_meal", label: "Late meal"),
         HabitDefinition(id: "journaling", label: "Journaling before bed"),
         HabitDefinition(id: "sunlight", label: "Morning sunlight"),
