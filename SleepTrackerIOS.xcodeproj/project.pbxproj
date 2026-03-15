@@ -23,6 +23,7 @@
 		B100001A /* WakeAudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000029 /* WakeAudioController.swift */; };
 		B100001B /* WakeMissionTone.wav in Resources */ = {isa = PBXBuildFile; fileRef = B100002A /* WakeMissionTone.wav */; };
 		B100001C /* BackgroundKeepAlive.wav in Resources */ = {isa = PBXBuildFile; fileRef = B100002B /* BackgroundKeepAlive.wav */; };
+		B100001D /* WakeMissionToneShort.wav in Resources */ = {isa = PBXBuildFile; fileRef = B100002C /* WakeMissionToneShort.wav */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +45,7 @@
 		B1000029 /* WakeAudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeAudioController.swift; sourceTree = "<group>"; };
 		B100002A /* WakeMissionTone.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = WakeMissionTone.wav; sourceTree = "<group>"; };
 		B100002B /* BackgroundKeepAlive.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = BackgroundKeepAlive.wav; sourceTree = "<group>"; };
+		B100002C /* WakeMissionToneShort.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = WakeMissionToneShort.wav; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -81,6 +83,7 @@
 				B1000027 /* ShowerDetectorProfile.json */,
 				B100002A /* WakeMissionTone.wav */,
 				B100002B /* BackgroundKeepAlive.wav */,
+				B100002C /* WakeMissionToneShort.wav */,
 				B1000019 /* Assets.xcassets */,
 				B1000015 /* Info.plist */,
 			);
@@ -166,6 +169,7 @@
 				B100001C /* BackgroundKeepAlive.wav in Resources */,
 				B100000C /* ShowerDetectorProfile.json in Resources */,
 				B100001B /* WakeMissionTone.wav in Resources */,
+				B100001D /* WakeMissionToneShort.wav in Resources */,
 				B1000008 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

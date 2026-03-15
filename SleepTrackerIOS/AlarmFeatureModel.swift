@@ -1097,8 +1097,12 @@ private struct NotificationScheduler: AlarmScheduling {
 
     func requestAuthorization() async throws -> AlarmPermissionState {
         registerCategories()
+        var options: UNAuthorizationOptions = [.alert, .sound, .badge]
+        if #available(iOS 15.0, *) {
+            options.insert(.timeSensitive)
+        }
         let granted = try await UNUserNotificationCenter.current().requestAuthorization(
-            options: [.alert, .sound, .badge]
+            options: options
         )
         return granted ? .authorized : .denied
     }
@@ -1171,7 +1175,7 @@ private struct NotificationScheduler: AlarmScheduling {
         content.body = offset == 0
             ? "Wake up and open Sleep Tracker. The shower mission is ready."
             : "Open Sleep Tracker and turn on the shower with the phone in the bathroom."
-        content.sound = UNNotificationSound(named: UNNotificationSoundName("WakeMissionTone.wav"))
+        content.sound = UNNotificationSound(named: UNNotificationSoundName("WakeMissionToneShort.wav"))
         content.categoryIdentifier = Self.categoryIdentifier
         content.threadIdentifier = "shower-wake"
         if #available(iOS 15.0, *) {

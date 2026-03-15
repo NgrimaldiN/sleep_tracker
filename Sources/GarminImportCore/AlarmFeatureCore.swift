@@ -930,21 +930,29 @@ public extension SleepTrackerAppCore {
         mutedThreshold: Float = 0.05,
         targetVolume: Float = 0.55
     ) -> Float? {
-        guard isAlarmArmed || isMissionPresented else {
-            return nil
+        // When the alarm is actively ringing, force volume to maximum.
+        // Combined with KVO on outputVolume this reacts before the
+        // volume HUD even finishes animating — matching Math Alarm's
+        // "impossible to silence" behavior.
+        if isMissionPresented {
+            guard currentVolume < 0.99 else { return nil }
+            return 1.0
         }
 
-        guard currentVolume <= mutedThreshold else {
-            return nil
-        }
-
+        guard isAlarmArmed else { return nil }
+        guard currentVolume <= mutedThreshold else { return nil }
         return targetVolume
     }
 
     static func shouldPlayForegroundWakeNotificationSound(
         isMissionPresented: Bool
     ) -> Bool {
-        !isMissionPresented
+        // Always play the notification sound even when the continuous wake tone
+        // is already playing.  The notification sound is the last-resort
+        // fallback: if the audio session failed to activate, the notification
+        // sound still reaches the user every 3 seconds.  A brief overlap with
+        // the AVAudioPlayer tone is acceptable — louder is better than silent.
+        true
     }
 
     static func shouldRefreshWakeAudioOnMissionPresentation(

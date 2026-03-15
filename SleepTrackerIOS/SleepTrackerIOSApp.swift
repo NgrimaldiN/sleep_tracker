@@ -52,7 +52,8 @@ final class SystemVolumeController {
     static let shared = SystemVolumeController()
 
     private let volumeView: MPVolumeView
-    private var enforcementTask: Task<Void, Never>?
+    private var volumeObservation: NSKeyValueObservation?
+    private var backupPollTask: Task<Void, Never>?
     private var isAlarmArmed = false
     private var isMissionPresented = false
 
@@ -61,6 +62,17 @@ final class SystemVolumeController {
         view.showsRouteButton = false
         view.isUserInteractionEnabled = false
         self.volumeView = view
+
+        // KVO fires the instant the user touches a volume button —
+        // faster than any polling loop can react.
+        volumeObservation = AVAudioSession.sharedInstance().observe(
+            \.outputVolume,
+            options: [.new]
+        ) { [weak self] _, _ in
+            DispatchQueue.main.async { [weak self] in
+                self?.enforceIfNeeded()
+            }
+        }
     }
 
     var hostView: MPVolumeView {
@@ -72,16 +84,18 @@ final class SystemVolumeController {
         self.isMissionPresented = isMissionPresented
 
         guard isAlarmArmed || isMissionPresented else {
-            enforcementTask?.cancel()
-            enforcementTask = nil
+            backupPollTask?.cancel()
+            backupPollTask = nil
             return
         }
 
-        if enforcementTask == nil {
-            enforcementTask = Task { @MainActor [weak self] in
+        // Backup poll in case KVO doesn't fire (e.g. programmatic
+        // volume changes from other apps or system events).
+        if backupPollTask == nil {
+            backupPollTask = Task { @MainActor [weak self] in
                 while let self, !Task.isCancelled {
                     self.enforceIfNeeded()
-                    try? await Task.sleep(for: .seconds(1.5))
+                    try? await Task.sleep(for: .seconds(2))
                 }
             }
         }
